@@ -109,7 +109,7 @@ def main() -> None:
         password=settings.mysql_password,
         database=settings.mysql_db,
         port=settings.mysql_port,
-        charset="utf8mb4",
+        charset=settings.mysql_charset,
         autocommit=False,
     )
     try:
