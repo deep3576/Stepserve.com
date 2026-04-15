@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
-const DEFAULT_API_BASE_URL = typeof __STEP_API_BASE_URL__ === 'string' ? __STEP_API_BASE_URL__ : 'http://127.0.0.1:8000/api/v1';
-
 function formatPrice(price) {
   const n = Number(price || 0);
   return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
@@ -25,10 +23,8 @@ function ListingCard({ item }) {
   );
 }
 
-const DEFAULT_API_BASE_URL = typeof __STEP_API_BASE_URL__ === 'string' ? __STEP_API_BASE_URL__ : 'http://127.0.0.1:8000/api/v1';
-
 export default function App() {
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_API_BASE_URL);
+  const [baseUrl, setBaseUrl] = useState(() => (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'));
   const [token, setToken] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [auth, setAuth] = useState({ mode: 'login', email: '', password: '', role: 'customer' });

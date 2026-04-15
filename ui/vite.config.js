@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
       port: 5173
     },
     define: {
-      __STEP_API_BASE_URL__: JSON.stringify(apiBaseUrl)
+      'import.meta.env.VITE_API_BASE_URL': JSON.stringify(apiBaseUrl)
     }
   };
 });
