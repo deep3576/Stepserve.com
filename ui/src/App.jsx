@@ -7,9 +7,11 @@ import CustomerPanel from './components/panels/CustomerPanel';
 import HandymanPanel from './components/panels/HandymanPanel';
 import AdminPanel from './components/panels/AdminPanel';
 
+const DEFAULT_API_BASE_URL = typeof __STEP_API_BASE_URL__ === 'string' ? __STEP_API_BASE_URL__ : 'http://127.0.0.1:8000/api/v1';
+
 export default function App() {
   const [tab, setTab] = useState('search');
-  const [baseUrl, setBaseUrl] = useState('http://127.0.0.1:8000/api/v1');
+  const [baseUrl, setBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const [token, setToken] = useState('');
 
   const api = useMemo(() => {
