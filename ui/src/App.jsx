@@ -25,6 +25,8 @@ function ListingCard({ item }) {
   );
 }
 
+const DEFAULT_API_BASE_URL = typeof __STEP_API_BASE_URL__ === 'string' ? __STEP_API_BASE_URL__ : 'http://127.0.0.1:8000/api/v1';
+
 export default function App() {
   const [baseUrl, setBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const [token, setToken] = useState('');
