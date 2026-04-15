@@ -18,7 +18,7 @@ from app.schemas.marketplace import (
     ServiceCreate,
 )
 
-router = APIRouter(tags=["marketplace"])
+router = APIRouter(tags=["stepserve"])
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
@@ -36,6 +36,88 @@ def create_category(
         category_id = cur.lastrowid
     conn.commit()
     return {"id": category_id, "name": payload.name, "slug": payload.slug}
+
+
+
+
+@router.get("/categories")
+def list_categories(
+    conn: pymysql.connections.Connection = Depends(get_connection),
+):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT c.id, c.name, c.slug, COUNT(s.id) AS services_count
+            FROM categories c
+            LEFT JOIN services s ON s.category_id = c.id AND s.is_active = 1
+            GROUP BY c.id, c.name, c.slug
+            ORDER BY services_count DESC, c.name ASC
+            """
+        )
+        return cur.fetchall()
+
+
+@router.get("/stepserve/home")
+@router.get("/market/home")
+def stepserve_home(
+    conn: pymysql.connections.Connection = Depends(get_connection),
+):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT c.id, c.name, c.slug, COUNT(s.id) AS services_count
+            FROM categories c
+            LEFT JOIN services s ON s.category_id = c.id AND s.is_active = 1
+            GROUP BY c.id, c.name, c.slug
+            ORDER BY services_count DESC, c.name ASC
+            LIMIT 12
+            """
+        )
+        categories = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT s.id, s.title, s.description, s.price, s.category_id, p.full_name AS provider_name, p.location
+            FROM services s
+            JOIN provider_profiles p ON p.id = s.provider_id
+            WHERE s.is_active = 1
+            ORDER BY s.price DESC, s.id DESC
+            LIMIT 8
+            """
+        )
+        featured = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT s.id, s.title, s.description, s.price, s.category_id, p.full_name AS provider_name, p.location
+            FROM services s
+            JOIN provider_profiles p ON p.id = s.provider_id
+            WHERE s.is_active = 1
+            ORDER BY s.id DESC
+            LIMIT 24
+            """
+        )
+        latest = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT p.location, COUNT(s.id) AS listings_count
+            FROM services s
+            JOIN provider_profiles p ON p.id = s.provider_id
+            WHERE s.is_active = 1 AND p.location IS NOT NULL AND p.location <> ''
+            GROUP BY p.location
+            ORDER BY listings_count DESC, p.location ASC
+            LIMIT 10
+            """
+        )
+        top_locations = cur.fetchall()
+
+    return {
+        "categories": categories,
+        "featured": featured,
+        "latest": latest,
+        "top_locations": top_locations,
+    }
 
 
 @router.get("/search/services")

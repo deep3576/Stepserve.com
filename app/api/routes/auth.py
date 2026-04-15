@@ -1,6 +1,9 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 import pymysql
 
+from app.api.deps import get_current_user
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_connection
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
@@ -13,6 +16,9 @@ def register(
     payload: RegisterRequest,
     conn: pymysql.connections.Connection = Depends(get_connection),
 ) -> TokenResponse:
+    if payload.role.value == "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Self-service admin registration is not allowed")
+
     with conn.cursor() as cur:
         cur.execute("SELECT id FROM users WHERE email = %s LIMIT 1", (payload.email,))
         if cur.fetchone():
@@ -43,3 +49,8 @@ def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = create_access_token(user["email"])
     return TokenResponse(access_token=token)
+
+
+@router.get("/me")
+def me(user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+    return {"id": user["id"], "email": user["email"], "role": user["role"], "is_active": user["is_active"]}

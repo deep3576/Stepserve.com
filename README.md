@@ -67,13 +67,7 @@ npm install
 npm run dev
 ```
 
-The UI is built with Vite + React and includes a modern marketplace landing layout aligned with the backend API routes. The default API base URL is loaded from `config.ini` (`[api].base_url`) and can be overridden with `VITE_API_BASE_URL`.
-It now includes dedicated tabs for:
-
-- Search options
-- Customer view
-- Handyman upload panel
-- Admin panel
+The UI is built with Vite + React and now follows a Karrot-style Stepserve classifieds experience: local-first feed, neighborhood search, category chips, featured/latest cards, account-based posting for handymen/providers, and an admin-only panel on admin login. The default API base URL is loaded from `config.ini` (`[api].base_url`) and can be overridden with `VITE_API_BASE_URL`.
 
 ## PythonAnywhere deployment
 
@@ -89,6 +83,8 @@ It now includes dedicated tabs for:
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me` (authenticated user profile + role)
+- `GET /api/v1/categories` (public category listing with counts)
 - `POST /api/v1/categories` (admin)
 - `POST /api/v1/providers/profile` (provider)
 - `POST /api/v1/services` (provider)
@@ -96,6 +92,8 @@ It now includes dedicated tabs for:
 - `POST /api/v1/bookings` (customer)
 - `POST /api/v1/payments` (customer)
 - `POST /api/v1/reviews` (customer, completed booking)
+- `GET /api/v1/stepserve/home` (public Stepserve home feed: categories, featured, latest, top locations)
+- `GET /api/v1/market/home` (legacy alias of Stepserve home feed)
 - `GET /api/v1/search/services` (public search options)
 - `GET /api/v1/customer/bookings` (customer view)
 - `GET/POST /api/v1/providers/uploads` (handyman upload panel)
