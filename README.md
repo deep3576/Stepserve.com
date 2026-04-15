@@ -34,13 +34,16 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Create env file:
+3. Configure `config.ini` (primary configuration source).
+
+   - Update `[flask]` and `[mysql]` values for your environment.
+   - Optional `[api]` section controls frontend API default (`base_url`).
+
+4. (Optional) Create `.env` for overrides:
 
 ```bash
 cp .env.example .env
 ```
-
-4. Set MySQL values in `.env` (PythonAnywhere MySQL host/user/password/db).
 
 5. Initialize DB tables:
 
@@ -64,7 +67,7 @@ npm install
 npm run dev
 ```
 
-The UI is built with Vite + React and includes a modern marketplace landing layout aligned with the backend API routes.
+The UI is built with Vite + React and includes a modern marketplace landing layout aligned with the backend API routes. The default API base URL is loaded from `config.ini` (`[api].base_url`) and can be overridden with `VITE_API_BASE_URL`.
 It now includes dedicated tabs for:
 
 - Search options
