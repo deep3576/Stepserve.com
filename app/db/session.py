@@ -13,7 +13,7 @@ def get_connection() -> Generator[pymysql.connections.Connection, None, None]:
         password=settings.mysql_password,
         database=settings.mysql_db,
         port=settings.mysql_port,
-        charset="utf8mb4",
+        charset=settings.mysql_charset,
         cursorclass=DictCursor,
         autocommit=False,
     )
