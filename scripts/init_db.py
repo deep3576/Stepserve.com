@@ -42,7 +42,7 @@ SCHEMA_SQL = [
       title VARCHAR(255) NOT NULL,
       description TEXT NOT NULL,
       price DECIMAL(10,2) NOT NULL,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      is_active TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_services_provider_id (provider_id),
       INDEX idx_services_category_id (category_id),
@@ -84,6 +84,22 @@ SCHEMA_SQL = [
       comment TEXT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_reviews_booking FOREIGN KEY (booking_id) REFERENCES bookings(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS listing_payments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      service_id INT NOT NULL UNIQUE,
+      provider_id INT NOT NULL,
+      amount DECIMAL(10,2) NOT NULL DEFAULT 5.00,
+      currency CHAR(3) NOT NULL DEFAULT 'CAD',
+      status ENUM('pending','paid') NOT NULL DEFAULT 'pending',
+      stripe_payment_intent_id VARCHAR(100) NULL,
+      paid_at TIMESTAMP NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_listing_pay_provider (provider_id),
+      CONSTRAINT fk_listing_pay_service FOREIGN KEY (service_id) REFERENCES services(id),
+      CONSTRAINT fk_listing_pay_provider FOREIGN KEY (provider_id) REFERENCES provider_profiles(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
     """

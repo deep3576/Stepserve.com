@@ -6,6 +6,7 @@ import {
   serviceToProvider, CATEGORY_META,
   apiRegister, apiLogin, apiGetMe, apiSaveProviderProfile, apiGetProviderDashboard,
   apiGetCategories, apiGetHome, apiSearchServices, apiCreateService,
+  apiPayListing, apiUpdateListing, apiDeactivateListing, apiGetProviderListings,
   apiAdminOverview, apiAdminUsers, apiAdminBookings, apiAdminUpdateUserStatus,
   apiAdminCreateCategory,
 } from './api'
@@ -111,7 +112,7 @@ const CatTabs = ({ active, setActive, categories }) => {
 
 // ── PAGES ───────────────────────────────────────────────────
 
-const Home = ({ go, categories, providers, loading }) => {
+const Home = ({ go, categories, providers, loading, topLocations = [] }) => {
   const [tab, setTab] = useState('All')
   const filtered = tab === 'All' ? providers : providers.filter(p => tab.includes(p.cat))
   return (
@@ -124,7 +125,8 @@ const Home = ({ go, categories, providers, loading }) => {
         <div style={{ display: 'flex', maxWidth: 600, margin: '0 auto 20px', border: '1.5px solid #ccc', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
           <input style={{ flex: 1, border: 'none', outline: 'none', padding: '13px 16px', fontSize: 15 }} placeholder="e.g. house cleaning, plumber..." />
           <select style={{ border: 'none', borderLeft: '1px solid #eee', outline: 'none', padding: '0 12px', fontSize: 13, color: '#444', background: '#fff', cursor: 'pointer' }}>
-            <option>Cambridge, ON</option><option>Toronto, ON</option><option>Kitchener, ON</option>
+            <option value="">All cities</option>
+            {topLocations.map(l => <option key={l.location} value={l.location}>{l.location}</option>)}
           </select>
           <button onClick={() => go('/search')} style={{ background: G, border: 'none', color: '#fff', padding: '0 24px', fontSize: 15, fontWeight: 500, cursor: 'pointer' }}>Search</button>
         </div>
@@ -629,22 +631,32 @@ const Login = ({ go, api, onLogin }) => {
 
 // ── Dashboard ────────────────────────────────────────────────
 const Dashboard = ({ go, api, currentUser }) => {
-  const [data, setData] = useState({ services: [], bookings: [], uploads: [] })
+  const [dashData, setDashData] = useState({ bookings: [], uploads: [] })
+  const [listings, setListings] = useState([])
+  const [cats, setCats] = useState([])
   const [profileForm, setProfileForm] = useState({ full_name: '', bio: '', location: '', hourly_rate: '' })
+  const [newListing, setNewListing] = useState(null) // null=hidden, {}=open
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({})
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const load = () => {
     if (!api || !currentUser) return
-    apiGetProviderDashboard(api)
-      .then(d => {
-        setData(d)
-        // Pre-populate profile form if profile data exists in services
-      })
-      .catch(() => setError('Could not load dashboard. Make sure you have a provider account.'))
+    Promise.all([
+      apiGetProviderDashboard(api),
+      apiGetProviderListings(api),
+      apiGetCategories(api),
+    ]).then(([dash, ls, cs]) => {
+      setDashData({ bookings: dash.bookings || [], uploads: dash.uploads || [] })
+      setListings(ls)
+      setCats(cs)
+    }).catch(() => setError('Could not load dashboard. Make sure you have a provider account.'))
       .finally(() => setLoading(false))
-  }, [api, currentUser])
+  }
+
+  useEffect(load, [api, currentUser])
 
   const saveProfile = async () => {
     setNotice(''); setError('')
@@ -655,13 +667,67 @@ const Dashboard = ({ go, api, currentUser }) => {
         location: profileForm.location || null,
         hourly_rate: profileForm.hourly_rate ? Number(profileForm.hourly_rate) : null,
       })
-      setNotice('Profile saved successfully.')
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Could not save profile.')
+      setNotice('Profile saved.')
+    } catch (err) { setError(err?.response?.data?.detail || 'Could not save profile.') }
+  }
+
+  const createListing = async () => {
+    setNotice(''); setError('')
+    if (!newListing?.title || !newListing?.category_id || !newListing?.price) {
+      setError('Title, category and price are required.'); return
     }
+    try {
+      const svc = await apiCreateService(api, {
+        title: newListing.title,
+        description: newListing.description || '',
+        category_id: Number(newListing.category_id),
+        price: Number(newListing.price),
+      })
+      setListings(prev => [{ ...svc, category_name: cats.find(c => c.id === svc.category_id)?.name || 'Other' }, ...prev])
+      setNewListing(null)
+      setNotice('Listing created! Pay the $5 listing fee below to publish it.')
+    } catch (err) { setError(err?.response?.data?.detail || 'Could not create listing.') }
+  }
+
+  const payListing = async (id) => {
+    setNotice(''); setError('')
+    try {
+      await apiPayListing(api, id)
+      setListings(prev => prev.map(l => l.id === id ? { ...l, payment_status: 'paid', is_active: 1 } : l))
+      setNotice('Payment successful! Your listing is now live.')
+    } catch (err) { setError(err?.response?.data?.detail || 'Payment failed.') }
+  }
+
+  const saveListing = async (id) => {
+    setNotice(''); setError('')
+    try {
+      const updated = await apiUpdateListing(api, id, {
+        title: editForm.title || undefined,
+        description: editForm.description || undefined,
+        price: editForm.price ? Number(editForm.price) : undefined,
+        category_id: editForm.category_id ? Number(editForm.category_id) : undefined,
+      })
+      setListings(prev => prev.map(l => l.id === id ? {
+        ...l, ...updated,
+        category_name: cats.find(c => c.id === (updated.category_id || l.category_id))?.name || l.category_name
+      } : l))
+      setEditingId(null)
+      setNotice('Listing updated.')
+    } catch (err) { setError(err?.response?.data?.detail || 'Could not update listing.') }
+  }
+
+  const deactivate = async (id) => {
+    try {
+      await apiDeactivateListing(api, id)
+      setListings(prev => prev.map(l => l.id === id ? { ...l, is_active: 0 } : l))
+    } catch (err) { setError(err?.response?.data?.detail || 'Could not deactivate.') }
   }
 
   if (loading) return <div style={st.wrap}><Spinner /></div>
+
+  const activeLive = listings.filter(l => l.is_active)
+  // Only warn about listings that are both unpaid AND inactive (truly unpublished drafts)
+  const pendingPay = listings.filter(l => l.payment_status === 'pending' && !l.is_active)
 
   return (
     <div style={st.wrap}>
@@ -677,8 +743,15 @@ const Dashboard = ({ go, api, currentUser }) => {
       </div>
       <Banner msg={notice} type="success" />
       <Banner msg={error} type="error" />
+
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
-        {[['Services listed', data.services.length, 'active'], ['Bookings', data.bookings.length, 'total'], ['Uploads', data.uploads.length, 'files'], ['Account', currentUser?.role || '-', currentUser?.is_active ? 'Active' : 'Inactive']].map(([l, v, s]) => (
+        {[
+          ['Live listings', activeLive.length, 'published'],
+          ['Total listings', listings.length, 'all time'],
+          ['Bookings', dashData.bookings.length, 'received'],
+          ['Uploads', dashData.uploads.length, 'files'],
+        ].map(([l, v, s]) => (
           <div key={l} style={{ background: '#f7f7f7', borderRadius: 10, padding: '16px' }}>
             <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{l}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a' }}>{v}</div>
@@ -686,36 +759,127 @@ const Dashboard = ({ go, api, currentUser }) => {
           </div>
         ))}
       </div>
+
+      {/* Listings management */}
+      <div style={{ ...st.card, marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <h3 style={{ ...st.h3, marginBottom: 0 }}>My listings ({listings.length})</h3>
+          <button onClick={() => setNewListing({ title: '', description: '', category_id: cats[0]?.id || '', price: '' })}
+            style={{ ...st.btnG, fontSize: 13, padding: '8px 16px' }}>+ Add new listing</button>
+        </div>
+
+        {/* Add listing form */}
+        {newListing && (
+          <div style={{ background: GL, border: `1.5px solid #b8dfd0`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
+            <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 14 }}>New listing — $5 listing fee to publish</div>
+            <div style={st.grid2}>
+              <div><label style={st.label}>Title *</label><input style={st.input} placeholder="e.g. House Cleaning" value={newListing.title} onChange={e => setNewListing({ ...newListing, title: e.target.value })} /></div>
+              <div><label style={st.label}>Category *</label>
+                <select style={st.input} value={newListing.category_id} onChange={e => setNewListing({ ...newListing, category_id: e.target.value })}>
+                  {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ marginTop: 12 }}><label style={st.label}>Description</label><textarea style={{ ...st.input, height: 72 }} placeholder="Describe what you offer..." value={newListing.description} onChange={e => setNewListing({ ...newListing, description: e.target.value })} /></div>
+            <div style={{ marginTop: 12, maxWidth: 200 }}><label style={st.label}>Your service price ($/visit or /hr) *</label><input style={st.input} type="number" placeholder="e.g. 80" value={newListing.price} onChange={e => setNewListing({ ...newListing, price: e.target.value })} /></div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button onClick={createListing} style={st.btnG}>Create listing</button>
+              <button onClick={() => setNewListing(null)} style={st.btnO}>Cancel</button>
+            </div>
+            <p style={{ fontSize: 12, color: '#888', marginTop: 8 }}>Your listing will be created as a draft. A $5 CAD listing fee is charged to publish it live.</p>
+          </div>
+        )}
+
+        {/* Pending payment notice */}
+        {pendingPay.length > 0 && (
+          <div style={{ background: '#fffbea', border: '1px solid #f6d860', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
+            ⚠️ You have {pendingPay.length} unpublished listing{pendingPay.length > 1 ? 's' : ''} awaiting the $5 listing fee.
+          </div>
+        )}
+
+        {/* Listings table */}
+        {listings.length === 0 ? (
+          <p style={st.muted}>No listings yet. Add your first listing above to start getting bookings.</p>
+        ) : (
+          <div>
+            {listings.map((l, i) => (
+              <div key={l.id} style={{ borderTop: i > 0 ? '1px solid #f0f0f0' : 'none', paddingTop: i > 0 ? 14 : 0, marginTop: i > 0 ? 14 : 0 }}>
+                {editingId === l.id ? (
+                  /* Edit form */
+                  <div style={{ background: '#fafafa', borderRadius: 8, padding: 14 }}>
+                    <div style={st.grid2}>
+                      <div><label style={st.label}>Title</label><input style={st.input} value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} /></div>
+                      <div><label style={st.label}>Category</label>
+                        <select style={st.input} value={editForm.category_id} onChange={e => setEditForm({ ...editForm, category_id: e.target.value })}>
+                          {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 10 }}><label style={st.label}>Description</label><textarea style={{ ...st.input, height: 64 }} value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} /></div>
+                    <div style={{ marginTop: 10, maxWidth: 180 }}><label style={st.label}>Price ($)</label><input style={st.input} type="number" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} /></div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button onClick={() => saveListing(l.id)} style={{ ...st.btnG, fontSize: 12, padding: '7px 14px' }}>Save</button>
+                      <button onClick={() => setEditingId(null)} style={{ ...st.btnO, fontSize: 12, padding: '7px 14px' }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Listing row */
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{l.title}</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>
+                        {l.category_name} · ${Number(l.price).toFixed(0)}/visit
+                        <span style={{ marginLeft: 8, ...st.badge(l.is_active ? '#e1f5ee' : '#f5f5f5', l.is_active ? G : '#888') }}>
+                          {l.is_active ? '● Live' : '○ Inactive'}
+                        </span>
+                        <span style={{ marginLeft: 6, ...st.badge(l.payment_status === 'paid' ? '#e1f5ee' : '#fffbea', l.payment_status === 'paid' ? G : '#b07800') }}>
+                          {l.payment_status === 'paid' ? '✓ Paid' : '⏳ Unpaid'}
+                        </span>
+                      </div>
+                      {l.description && <div style={{ fontSize: 12, color: '#aaa', marginTop: 4, maxWidth: 500 }}>{l.description.slice(0, 100)}{l.description.length > 100 ? '…' : ''}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      {l.payment_status !== 'paid' && !l.is_active && (
+                        <button onClick={() => payListing(l.id)} style={{ ...st.btnG, fontSize: 12, padding: '6px 12px', background: '#b07800', border: 'none' }}>
+                          Pay $5 to publish
+                        </button>
+                      )}
+                      <button onClick={() => { setEditingId(l.id); setEditForm({ title: l.title, description: l.description || '', price: l.price, category_id: cats.find(c => c.name === l.category_name)?.id || '' }) }}
+                        style={{ ...st.btnO, fontSize: 12, padding: '6px 12px' }}>Edit</button>
+                      {l.is_active === 1 && (
+                        <button onClick={() => deactivate(l.id)} style={{ ...st.btnO, fontSize: 12, padding: '6px 12px', color: '#c0392b', borderColor: '#f5c6c6' }}>Deactivate</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Profile + bookings */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div style={st.card}>
           <h3 style={st.h3}>Profile information</h3>
           <div style={{ marginBottom: 12 }}><label style={st.label}>Full name</label><input style={st.input} placeholder="Your full name" value={profileForm.full_name} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} /></div>
-          <div style={{ marginBottom: 12 }}><label style={st.label}>Location (city, province)</label><input style={st.input} placeholder="Cambridge, ON" value={profileForm.location} onChange={e => setProfileForm({ ...profileForm, location: e.target.value })} /></div>
+          <div style={{ marginBottom: 12 }}><label style={st.label}>Location</label><input style={st.input} placeholder="Cambridge, ON" value={profileForm.location} onChange={e => setProfileForm({ ...profileForm, location: e.target.value })} /></div>
           <div style={{ marginBottom: 12 }}><label style={st.label}>Hourly rate ($)</label><input style={st.input} placeholder="e.g. 75" type="number" value={profileForm.hourly_rate} onChange={e => setProfileForm({ ...profileForm, hourly_rate: e.target.value })} /></div>
           <div style={{ marginBottom: 16 }}><label style={st.label}>Bio</label><textarea style={{ ...st.input, height: 90 }} placeholder="Describe your services..." value={profileForm.bio} onChange={e => setProfileForm({ ...profileForm, bio: e.target.value })} /></div>
           <button onClick={saveProfile} style={{ ...st.btnG, padding: '10px 20px' }}>Save changes</button>
         </div>
         <div style={st.card}>
-          <h3 style={st.h3}>My services ({data.services.length})</h3>
-          {data.services.length === 0 ? (
-            <p style={st.muted}>No services yet. Post a new service to appear in search results.</p>
+          <h3 style={st.h3}>Recent bookings ({dashData.bookings.length})</h3>
+          {dashData.bookings.length === 0 ? (
+            <p style={st.muted}>No bookings yet. Once your listings are live, bookings will appear here.</p>
           ) : (
-            data.services.slice(0, 5).map((s, i) => (
-              <div key={s.id} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : 'none', paddingTop: i > 0 ? 10 : 0, marginTop: i > 0 ? 10 : 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{s.title}</div>
-                <div style={{ fontSize: 12, color: '#888' }}>${Number(s.price).toFixed(2)} · {s.is_active ? '✅ Active' : '⏸ Inactive'}</div>
-              </div>
-            ))
-          )}
-          <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 14 }}>
-            <h3 style={{ ...st.h3, marginBottom: 10 }}>Recent bookings ({data.bookings.length})</h3>
-            {data.bookings.length === 0 ? <p style={st.muted}>No bookings yet.</p> : data.bookings.slice(0, 4).map((b, i) => (
-              <div key={b.id} style={{ fontSize: 13, padding: '6px 0', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between' }}>
+            dashData.bookings.slice(0, 6).map((b, i) => (
+              <div key={b.id} style={{ fontSize: 13, padding: '8px 0', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Booking #{b.id} · <span style={{ color: '#888' }}>{b.status}</span></span>
                 <span style={{ fontWeight: 600 }}>${Number(b.total_price).toFixed(2)}</span>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -1104,8 +1268,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
 
   // ── Data state ──────────────────────────────────────────────
-  const [categories, setCategories] = useState(MOCK_CATS)
-  const [providers, setProviders] = useState(MOCK_PROVIDERS)
+  const [categories, setCategories] = useState([])
+  const [providers, setProviders] = useState([])
+  const [topLocations, setTopLocations] = useState([])
   const [homeLoading, setHomeLoading] = useState(false)
 
   // ── API client (recreated when token changes) ───────────────
@@ -1119,13 +1284,14 @@ export default function App() {
       apiGetCategories(api),
       apiGetHome(api),
     ]).then(([cats, home]) => {
-      if (cats.length > 0) setCategories(cats)
+      setCategories(cats)
+      setTopLocations(home.top_locations || [])
       const mapped = [...(home.featured || []), ...(home.latest || [])]
         .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i) // dedupe
-        .map(s => serviceToProvider(s, cats.length > 0 ? cats : MOCK_CATS))
-      if (mapped.length > 0) setProviders(mapped)
+        .map(s => serviceToProvider(s, cats))
+      setProviders(mapped)
     }).catch(() => {
-      // Backend not available — keep mock data silently
+      // Backend not available — empty state, no mock data
     }).finally(() => setHomeLoading(false))
   }, [])
 
@@ -1151,7 +1317,7 @@ export default function App() {
   const renderPage = () => {
     const common = { go, categories, providers, api, currentUser }
 
-    if (route === '/') return <Home go={go} categories={categories} providers={providers} loading={homeLoading} />
+    if (route === '/') return <Home go={go} categories={categories} providers={providers} loading={homeLoading} topLocations={topLocations} />
     if (route === '/search') return <Search go={go} categories={categories} api={api} />
     if (route.startsWith('/providers/')) return <ProviderProfile go={go} id={route.split('/')[2]} providers={providers} />
     if (route === '/categories') return <Categories go={go} categories={categories} />

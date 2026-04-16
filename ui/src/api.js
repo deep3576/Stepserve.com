@@ -101,10 +101,30 @@ export async function apiSearchServices(client, params = {}) {
   return data // [services]
 }
 
-// ── Services ───────────────────────────────────────────────
+// ── Services / Listings ────────────────────────────────────
 export async function apiCreateService(client, payload) {
   const { data } = await client.post('/services', payload)
+  return data // { id, provider_id, ..., is_active: false, payment_status: 'pending', listing_fee: 5 }
+}
+
+export async function apiPayListing(client, serviceId) {
+  const { data } = await client.post(`/listings/${serviceId}/pay`)
+  return data // ListingPaymentResponse
+}
+
+export async function apiUpdateListing(client, serviceId, payload) {
+  const { data } = await client.patch(`/services/${serviceId}`, payload)
   return data
+}
+
+export async function apiDeactivateListing(client, serviceId) {
+  const { data } = await client.delete(`/services/${serviceId}`)
+  return data
+}
+
+export async function apiGetProviderListings(client) {
+  const { data } = await client.get('/provider/listings')
+  return data // [{ id, title, description, price, is_active, category_name, payment_status, listing_fee, paid_at }]
 }
 
 // ── Admin ──────────────────────────────────────────────────
