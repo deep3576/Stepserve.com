@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import pymysql
 
 from app.api.routes import auth, marketplace
 from app.core.config import settings
+from app.db.session import get_connection
 
 
 @asynccontextmanager
@@ -30,8 +32,10 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(conn: pymysql.connections.Connection = Depends(get_connection)) -> dict[str, str]:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1")
+    return {"status": "ok", "db": "ok"}
 
 
 app.include_router(auth.router, prefix="/api/v1")
