@@ -598,7 +598,7 @@ def admin_overview(
         services_count = cur.fetchone()["count"]
         cur.execute("SELECT COUNT(*) AS count FROM bookings")
         bookings_count = cur.fetchone()["count"]
-        cur.execute("SELECT COUNT(*) AS total FROM payments WHERE status='paid'")
+        cur.execute("SELECT COALESCE(SUM(amount), 0) AS total FROM listing_payments WHERE status='paid'")
         paid_total = float(cur.fetchone()["total"] or 0)
 
     return {
