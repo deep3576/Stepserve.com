@@ -29,31 +29,6 @@ const st = {
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
 }
 
-// ── Static fallback data ────────────────────────────────────
-const MOCK_CATS = [
-  { id: 1, name: 'Cleaning', slug: 'cleaning', services_count: 24 },
-  { id: 2, name: 'Landscaping', slug: 'landscaping', services_count: 18 },
-  { id: 3, name: 'Plumbing', slug: 'plumbing', services_count: 15 },
-  { id: 4, name: 'Electrical', slug: 'electrical', services_count: 12 },
-  { id: 5, name: 'Carpentry', slug: 'carpentry', services_count: 9 },
-  { id: 6, name: 'Painting', slug: 'painting', services_count: 11 },
-  { id: 7, name: 'HVAC', slug: 'hvac', services_count: 8 },
-  { id: 8, name: 'Moving', slug: 'moving', services_count: 7 },
-  { id: 9, name: 'Pet Care', slug: 'pet-care', services_count: 19 },
-  { id: 10, name: 'Windows', slug: 'windows', services_count: 6 },
-  { id: 11, name: 'Renovation', slug: 'renovation', services_count: 14 },
-  { id: 12, name: 'Other', slug: 'other', services_count: 5 },
-]
-
-const MOCK_PROVIDERS = [
-  { id: 1, name: 'Sparkle Clean Co.', city: 'Cambridge, ON', cat: 'Cleaning', rating: 5, reviews: 42, price: 'From $80/visit', cert: true, insured: false, icon: '🧹', bg: '#e0f0eb', bio: 'Professional residential and commercial cleaning since 2015.' },
-  { id: 2, name: 'Green Thumb Landscapes', city: 'Kitchener, ON', cat: 'Landscaping', rating: 5, reviews: 37, price: 'Free estimate', cert: true, insured: true, icon: '🌿', bg: '#e3f2e8', bio: 'Award-winning landscape design and maintenance.' },
-  { id: 3, name: "Mike's Plumbing & Drain", city: 'Cambridge, ON', cat: 'Plumbing', rating: 4, reviews: 29, price: '$95/hr', cert: false, insured: true, icon: '🔧', bg: '#e8eef6', bio: 'Licensed master plumber with 20+ years experience.' },
-  { id: 4, name: 'ProFinish Painting', city: 'Waterloo, ON', cat: 'Painting', rating: 5, reviews: 18, price: 'Free estimate', cert: true, insured: false, icon: '🎨', bg: '#fef8ec', bio: 'Interior and exterior painting. Serving Waterloo Region for 12 years.' },
-  { id: 5, name: 'Watts Up Electric', city: 'Guelph, ON', cat: 'Electrical', rating: 5, reviews: 54, price: '$110/hr', cert: true, insured: true, icon: '⚡', bg: '#fdecea', bio: 'Licensed electrical contractor. EV charger installs, panel upgrades.' },
-  { id: 6, name: 'ComfortZone HVAC', city: 'Kitchener, ON', cat: 'HVAC', rating: 5, reviews: 31, price: 'From $120/visit', cert: true, insured: true, icon: '❄️', bg: '#e6f4f0', bio: 'Furnace, A/C, heat pump installs and repairs. TSSA certified.' },
-]
-
 // ── Helpers ─────────────────────────────────────────────────
 const Stars = ({ n = 5 }) => <span style={{ color: '#f5a623', fontSize: 13 }}>{Array(n).fill('★').join('')}{Array(5 - n).fill('☆').join('')}</span>
 
@@ -112,9 +87,26 @@ const CatTabs = ({ active, setActive, categories }) => {
 
 // ── PAGES ───────────────────────────────────────────────────
 
+// Trending term → best matching category name
+const TREND_CAT = {
+  'house cleaning': 'Cleaning', 'lawn care': 'Landscaping', 'plumber': 'Plumbing',
+  'electrician': 'Electrical', 'painter': 'Painting', 'snow removal': 'Landscaping',
+  'handyman': 'Renovation', 'hvac': 'HVAC', 'moving': 'Moving', 'pet sitting': 'Pet Care',
+}
+
 const Home = ({ go, categories, providers, loading, topLocations = [] }) => {
   const [tab, setTab] = useState('All')
+  const [searchVal, setSearchVal] = useState('')
   const filtered = tab === 'All' ? providers : providers.filter(p => tab.includes(p.cat))
+
+  const handleSearch = () => {
+    const q = searchVal.trim()
+    if (!q) { go('/search'); return }
+    const matched = Object.entries(TREND_CAT).find(([k]) => q.toLowerCase().includes(k))
+    if (matched) go('/search/' + encodeURIComponent(matched[1]))
+    else go('/search')
+  }
+
   return (
     <div>
       <div style={{ background: GL, padding: '52px 20px 44px', textAlign: 'center' }}>
@@ -123,17 +115,24 @@ const Home = ({ go, categories, providers, loading, topLocations = [] }) => {
         </h1>
         <p style={{ color: '#666', fontSize: 16, marginBottom: 28 }}>Verified, insured, and reviewed — right in your neighbourhood.</p>
         <div style={{ display: 'flex', maxWidth: 600, margin: '0 auto 20px', border: '1.5px solid #ccc', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
-          <input style={{ flex: 1, border: 'none', outline: 'none', padding: '13px 16px', fontSize: 15 }} placeholder="e.g. house cleaning, plumber..." />
+          <input
+            style={{ flex: 1, border: 'none', outline: 'none', padding: '13px 16px', fontSize: 15 }}
+            placeholder="e.g. house cleaning, plumber..."
+            value={searchVal}
+            onChange={e => setSearchVal(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+          />
           <select style={{ border: 'none', borderLeft: '1px solid #eee', outline: 'none', padding: '0 12px', fontSize: 13, color: '#444', background: '#fff', cursor: 'pointer' }}>
             <option value="">All cities</option>
             {topLocations.map(l => <option key={l.location} value={l.location}>{l.location}</option>)}
           </select>
-          <button onClick={() => go('/search')} style={{ background: G, border: 'none', color: '#fff', padding: '0 24px', fontSize: 15, fontWeight: 500, cursor: 'pointer' }}>Search</button>
+          <button onClick={handleSearch} style={{ background: G, border: 'none', color: '#fff', padding: '0 24px', fontSize: 15, fontWeight: 500, cursor: 'pointer' }}>Search</button>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center', fontSize: 13 }}>
           <span style={{ color: '#888' }}>Trending:</span>
-          {['house cleaning', 'lawn care', 'plumber', 'electrician', 'painter', 'snow removal', 'handyman'].map(t => (
-            <span key={t} onClick={() => go('/search')} style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#444', cursor: 'pointer' }}>{t}</span>
+          {['house cleaning', 'lawn care', 'plumber', 'electrician', 'painter', 'moving', 'handyman'].map(t => (
+            <span key={t} onClick={() => go('/search/' + encodeURIComponent(TREND_CAT[t] || 'Other'))}
+              style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#444', cursor: 'pointer' }}>{t}</span>
           ))}
         </div>
       </div>
@@ -168,9 +167,9 @@ const Home = ({ go, categories, providers, loading, topLocations = [] }) => {
             <button onClick={() => go('/register')} style={{ ...st.btnG, marginTop: 8, padding: '12px 24px', fontSize: 15 }}>List your business →</button>
           </div>
           <div style={{ background: GL, border: '1.5px solid #b8dfd0', borderRadius: 12, padding: '28px 32px', textAlign: 'center', flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>One simple plan</div>
-            <div style={{ fontSize: 46, fontWeight: 800, color: G, letterSpacing: -2, lineHeight: 1 }}><sup style={{ fontSize: 20, verticalAlign: 'top', marginTop: 10, display: 'inline-block' }}>$</sup>5<sub style={{ fontSize: 15, fontWeight: 400, color: '#888' }}>/mo</sub></div>
-            <p style={{ fontSize: 13, color: '#888', margin: '8px 0 16px' }}>Everything included</p>
+            <div style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>One simple fee</div>
+            <div style={{ fontSize: 46, fontWeight: 800, color: G, letterSpacing: -2, lineHeight: 1 }}><sup style={{ fontSize: 20, verticalAlign: 'top', marginTop: 10, display: 'inline-block' }}>$</sup>5<sub style={{ fontSize: 15, fontWeight: 400, color: '#888' }}>/listing</sub></div>
+            <p style={{ fontSize: 13, color: '#888', margin: '8px 0 16px' }}>Free account — pay per listing</p>
             <button onClick={() => go('/register')} style={{ ...st.btnG, width: '100%', padding: 11 }}>Get started</button>
           </div>
         </div>
@@ -186,8 +185,12 @@ const Home = ({ go, categories, providers, loading, topLocations = [] }) => {
 }
 
 // ── Search ──────────────────────────────────────────────────
-const Search = ({ go, categories, api }) => {
-  const [tab, setTab] = useState('All')
+const Search = ({ go, categories, api, initialCat = 'All' }) => {
+  const [tab, setTab] = useState(() => {
+    if (!initialCat || initialCat === 'All') return 'All'
+    const meta = CATEGORY_META[initialCat] || { icon: '🔍' }
+    return `${meta.icon} ${initialCat}`
+  })
   const [rating, setRating] = useState('Any')
   const [cert, setCert] = useState(false)
   const [insured, setInsured] = useState(false)
@@ -266,7 +269,7 @@ const Search = ({ go, categories, api }) => {
 
 // ── Provider Profile ────────────────────────────────────────
 const ProviderProfile = ({ go, id, providers }) => {
-  const p = providers.find(x => x.id === parseInt(id)) || providers[0] || MOCK_PROVIDERS[0]
+  const p = providers.find(x => x.id === parseInt(id)) || providers[0]
   const reviews = [
     { user: 'Sarah R.', city: 'Toronto', rating: 5, comment: 'Absolutely fantastic service, showed up on time and did a thorough job. Will book again!' },
     { user: 'Michel B.', city: 'Montréal', rating: 5, comment: 'Super professional and friendly. Our house looks brand new.' },
@@ -351,7 +354,7 @@ const Categories = ({ go, categories }) => (
       {categories.map(c => {
         const meta = CATEGORY_META[c.name] || { icon: '🔍' }
         return (
-          <div key={c.name} onClick={() => go('/search')}
+          <div key={c.name} onClick={() => go('/search/' + encodeURIComponent(c.name))}
             style={{ ...st.card, textAlign: 'center', cursor: 'pointer', padding: '28px 16px' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = G; e.currentTarget.style.boxShadow = `0 2px 12px rgba(10,124,92,0.1)` }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = '#eee'; e.currentTarget.style.boxShadow = 'none' }}>
@@ -368,7 +371,7 @@ const Categories = ({ go, categories }) => (
 // ── Review ──────────────────────────────────────────────────
 const Review = ({ go, id, providers }) => {
   const [stars, setStars] = useState(0)
-  const p = providers.find(x => x.id === parseInt(id)) || providers[0] || MOCK_PROVIDERS[0]
+  const p = providers.find(x => x.id === parseInt(id)) || providers[0]
   return (
     <div style={{ ...st.wrap, maxWidth: 600 }}>
       <span onClick={() => go('/providers/' + (p?.id || ''))} style={{ fontSize: 13, color: G, cursor: 'pointer', display: 'block', marginBottom: 20 }}>← Back to {p?.name}</span>
@@ -409,7 +412,7 @@ const About = ({ go }) => (
       </div>
       {[
         ['Our mission', "StepServe was built to solve a simple problem: finding a reliable local tradesperson or service professional should not be stressful. We created a platform where every listed provider is identity-verified, and where customers can review certifications and insurance status before making contact."],
-        ['How it works', 'Providers pay a flat $5/month subscription to maintain a public profile on StepServe. Customers can browse for free — no account required. Search by category and city, view full profiles, read reviews, and contact providers directly.'],
+        ['How it works', 'Providers create a free account, then pay a flat $5 CAD per listing to publish their services. Customers browse for free — no account required. Search by category and city, view full profiles, read reviews, and contact providers directly.'],
         ['Our standards', 'Every provider on StepServe goes through an email-verified registration. Certifications and liability insurance documents are uploaded and reviewed by our admin team. Verified credentials are displayed clearly with badges on each profile.'],
         ['Built in Canada', 'StepServe is operated by Kingsman Software Solutions and is fully PIPEDA-compliant. We store your data securely in Canadian data centres and do not sell personal information to third parties.'],
       ].map(([t, c]) => (
@@ -426,27 +429,75 @@ const About = ({ go }) => (
 )
 
 // ── Contact ─────────────────────────────────────────────────
-const Contact = () => (
-  <div style={{ ...st.wrap, maxWidth: 640 }}>
-    <h1 style={st.h1}>Contact us</h1>
-    <p style={{ color: '#666', marginBottom: 28 }}>Have a question or need help? Our team usually responds within one business day.</p>
-    <div style={st.card}>
-      <div style={{ marginBottom: 14 }}><label style={st.label}>Your name</label><input style={st.input} placeholder="Full name" /></div>
-      <div style={{ marginBottom: 14 }}><label style={st.label}>Email</label><input style={st.input} type="email" placeholder="you@example.com" /></div>
-      <div style={{ marginBottom: 14 }}>
-        <label style={st.label}>Topic</label>
-        <select style={st.input}><option>General inquiry</option><option>Provider support</option><option>Billing question</option><option>Report an issue</option><option>Other</option></select>
+const Contact = () => {
+  const [form, setForm] = useState({ name: '', email: '', topic: 'General inquiry', message: '' })
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSend = () => {
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      setError('Please fill in your name, email, and message.')
+      return
+    }
+    if (!/\S+@\S+\.\S+/.test(form.email)) {
+      setError('Please enter a valid email address.')
+      return
+    }
+    setError('')
+    setSent(true)
+  }
+
+  if (sent) return (
+    <div style={{ ...st.wrap, maxWidth: 640, textAlign: 'center', paddingTop: 48 }}>
+      <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
+      <h1 style={st.h1}>Message sent!</h1>
+      <p style={{ color: '#666', fontSize: 15, marginBottom: 24 }}>Thanks, {form.name}. We'll get back to you at <strong>{form.email}</strong> within one business day.</p>
+      <button onClick={() => { setSent(false); setForm({ name: '', email: '', topic: 'General inquiry', message: '' }) }}
+        style={st.btnO}>Send another message</button>
+    </div>
+  )
+
+  return (
+    <div style={{ ...st.wrap, maxWidth: 640 }}>
+      <h1 style={st.h1}>Contact us</h1>
+      <p style={{ color: '#666', marginBottom: 28 }}>Have a question or need help? Our team usually responds within one business day.</p>
+      <div style={st.card}>
+        <Banner msg={error} type="error" />
+        <div style={{ marginBottom: 14 }}>
+          <label style={st.label}>Your name *</label>
+          <input style={st.input} placeholder="Full name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={st.label}>Email *</label>
+          <input style={st.input} type="email" placeholder="you@example.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={st.label}>Topic</label>
+          <select style={st.input} value={form.topic} onChange={e => setForm({ ...form, topic: e.target.value })}>
+            <option>General inquiry</option>
+            <option>Provider support</option>
+            <option>Billing question</option>
+            <option>Report an issue</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={st.label}>Message *</label>
+          <textarea style={{ ...st.input, height: 140, resize: 'vertical' }} placeholder="Describe your question or issue..." value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} />
+        </div>
+        <button onClick={handleSend} style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15 }}>Send message</button>
       </div>
-      <div style={{ marginBottom: 20 }}><label style={st.label}>Message</label><textarea style={{ ...st.input, height: 140, resize: 'vertical' }} placeholder="Describe your question or issue..." /></div>
-      <button style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15 }}>Send message</button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24 }}>
+        {[['📧 Email', 'support@stepserve.com'], ['🕐 Response time', 'Within 1 business day']].map(([t, v]) => (
+          <div key={t} style={st.card}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{t}</div>
+            <div style={{ fontSize: 13, color: '#888' }}>{v}</div>
+          </div>
+        ))}
+      </div>
     </div>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24 }}>
-      {[['📧 Email', 'support@stepserve.com'], ['🕐 Response time', 'Within 1 business day']].map(([t, v]) => (
-        <div key={t} style={st.card}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{t}</div><div style={{ fontSize: 13, color: '#888' }}>{v}</div></div>
-      ))}
-    </div>
-  </div>
-)
+  )
+}
 
 // ── Terms / Privacy ─────────────────────────────────────────
 const TextPage = ({ title, sections }) => (
@@ -465,7 +516,7 @@ const TextPage = ({ title, sections }) => (
 const Terms = () => <TextPage title="Terms of Service" sections={[
   ['Acceptance', 'By accessing or using StepServe, you agree to be bound by these Terms of Service and all applicable laws and regulations.'],
   ['Provider listings', 'Providers must be legally operating in their province and provide truthful information. StepServe reserves the right to remove any listing at its discretion.'],
-  ['Subscriptions', 'Provider subscriptions are billed monthly at $5 CAD via Stripe. You may cancel at any time; cancellation takes effect at the end of the current billing period.'],
+  ['Listing fees', 'Publishing a service listing costs $5 CAD (one-time, per listing), processed via Stripe. Fees are non-refundable once a listing is published.'],
   ['Reviews', 'Reviews must be based on genuine experiences. False, defamatory, or spam reviews are prohibited and subject to removal.'],
   ['Liability', 'StepServe is a directory service. We do not employ the providers listed on our platform and are not liable for services rendered.'],
   ['Changes', 'We reserve the right to modify these terms at any time. Continued use of StepServe following changes constitutes acceptance.'],
@@ -572,16 +623,17 @@ const Register = ({ go, api, onLogin }) => {
       )}
       {step === 3 && (
         <div style={st.card}>
-          <h2 style={st.h2}>Start your subscription</h2>
+          <h2 style={st.h2}>Your account is ready!</h2>
           <div style={{ background: GL, border: '1px solid #b8dfd0', borderRadius: 10, padding: '18px', marginBottom: 20, textAlign: 'center' }}>
-            <div style={{ fontSize: 32, fontWeight: 800, color: G }}>$5<span style={{ fontSize: 16, fontWeight: 400, color: '#888' }}>/month</span></div>
-            <p style={{ fontSize: 13, color: '#777', marginTop: 4 }}>Cancel anytime. No setup fees. Billed via Stripe.</p>
+            <div style={{ fontSize: 13, color: '#777', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Listing fee</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: G }}>$5<span style={{ fontSize: 16, fontWeight: 400, color: '#888' }}> / listing</span></div>
+            <p style={{ fontSize: 13, color: '#777', marginTop: 4 }}>Account signup is free. Pay $5 per listing to publish it live.</p>
           </div>
-          {['Full public profile listing', 'Appear in local search results', 'Upload certifications & insurance', 'Receive customer reviews', 'Provider dashboard access'].map(b => (
+          {['Free provider account — no monthly fee', 'Pay $5 per listing to go live in search', 'Upload certifications & insurance documents', 'Receive and manage customer bookings', 'Full provider dashboard access'].map(b => (
             <div key={b} style={{ display: 'flex', gap: 8, fontSize: 14, marginBottom: 9 }}><span style={{ color: G }}>✓</span>{b}</div>
           ))}
           <button onClick={() => go('/dashboard')} style={{ ...st.btnG, width: '100%', padding: 13, marginTop: 20, fontSize: 15 }}>Go to Dashboard →</button>
-          <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', marginTop: 10 }}>Secured by Stripe. Your card is never stored on our servers.</p>
+          <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', marginTop: 10 }}>Listing payments processed securely via Stripe.</p>
         </div>
       )}
     </div>
@@ -957,32 +1009,63 @@ const DashDocuments = ({ api }) => {
   )
 }
 
-// ── DashBilling (static) ──────────────────────────────────────
-const DashBilling = () => (
-  <div style={{ ...st.wrap, maxWidth: 640 }}>
-    <h1 style={st.h1}>Billing</h1>
-    <div style={{ ...st.card, marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>StepServe Provider — $5/month</div>
-          <div style={{ fontSize: 14, color: '#888', marginBottom: 12 }}>Next billing date: <strong style={{ color: '#333' }}>May 1, 2026</strong></div>
-          <span style={st.badge()}>✓ Active</span>
+// ── DashBilling ───────────────────────────────────────────────
+const DashBilling = ({ api }) => {
+  const [payments, setPayments] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!api) return
+    apiGetProviderListings(api)
+      .then(ls => setPayments(ls.filter(l => l.payment_status === 'paid')))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [api])
+
+  return (
+    <div style={{ ...st.wrap, maxWidth: 640 }}>
+      <h1 style={st.h1}>Billing</h1>
+      <div style={{ ...st.card, marginBottom: 20 }}>
+        <h3 style={st.h3}>Listing fee model</h3>
+        <p style={{ fontSize: 14, color: '#555', lineHeight: 1.7 }}>
+          StepServe charges a flat <strong>$5 CAD per listing</strong> — one-time, no recurring fees.
+          Your account is free. You only pay when you want to publish a new listing.
+        </p>
+      </div>
+      <div style={{ ...st.card, marginBottom: 20 }}>
+        <h3 style={st.h3}>Paid listings ({payments.length})</h3>
+        {loading ? <Spinner /> : payments.length === 0 ? (
+          <p style={st.muted}>No paid listings yet.</p>
+        ) : (
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ color: '#aaa', textAlign: 'left' }}>
+                {['Listing', 'Category', 'Fee', 'Paid on'].map(h => (
+                  <th key={h} style={{ padding: '6px 0', borderBottom: '1px solid #eee', fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map(p => (
+                <tr key={p.id}>
+                  <td style={{ padding: '9px 0', borderBottom: '1px solid #f5f5f5', fontWeight: 500 }}>{p.title}</td>
+                  <td style={{ padding: '9px 0', borderBottom: '1px solid #f5f5f5', color: '#888' }}>{p.category_name}</td>
+                  <td style={{ padding: '9px 0', borderBottom: '1px solid #f5f5f5', fontWeight: 600, color: G }}>${Number(p.listing_fee || 5).toFixed(2)}</td>
+                  <td style={{ padding: '9px 0', borderBottom: '1px solid #f5f5f5', color: '#888' }}>{p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-CA') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <div style={{ ...st.card, background: GL }}>
+        <div style={{ fontSize: 13, color: '#555' }}>
+          Questions about billing? Email <strong>support@stepserve.com</strong>
         </div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: G }}>$5<span style={{ fontSize: 14, fontWeight: 400, color: '#888' }}>/mo</span></div>
       </div>
     </div>
-    <div style={{ ...st.card, marginBottom: 20 }}>
-      <h3 style={st.h3}>Payment method</h3>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#f9f9f9', borderRadius: 8 }}>
-        <div style={{ fontSize: 22 }}>💳</div>
-        <div><div style={{ fontSize: 14, fontWeight: 500 }}>Visa ending in 4242</div><div style={{ fontSize: 12, color: '#888' }}>Expires 08/2027</div></div>
-        <button style={{ ...st.btnO, marginLeft: 'auto', fontSize: 12, padding: '6px 12px' }}>Update</button>
-      </div>
-    </div>
-    <button style={{ ...st.btnO, color: '#c0392b', borderColor: '#f5c6c6' }}>Cancel subscription</button>
-    <p style={{ fontSize: 12, color: '#aaa', marginTop: 8 }}>Cancelling will deactivate your profile at the end of the current billing period.</p>
-  </div>
-)
+  )
+}
 
 // ── Admin ─────────────────────────────────────────────────────
 const Admin = ({ go, api }) => {
@@ -1318,7 +1401,10 @@ export default function App() {
     const common = { go, categories, providers, api, currentUser }
 
     if (route === '/') return <Home go={go} categories={categories} providers={providers} loading={homeLoading} topLocations={topLocations} />
-    if (route === '/search') return <Search go={go} categories={categories} api={api} />
+    if (route === '/search' || route.startsWith('/search/')) {
+      const cat = route.startsWith('/search/') ? decodeURIComponent(route.split('/search/')[1]) : 'All'
+      return <Search go={go} categories={categories} api={api} initialCat={cat} />
+    }
     if (route.startsWith('/providers/')) return <ProviderProfile go={go} id={route.split('/')[2]} providers={providers} />
     if (route === '/categories') return <Categories go={go} categories={categories} />
     if (route.startsWith('/review/')) return <Review go={go} id={route.split('/')[2]} providers={providers} />
@@ -1330,7 +1416,7 @@ export default function App() {
     if (route === '/login') return <Login go={go} api={api} onLogin={onLogin} />
     if (route === '/dashboard') return <Dashboard go={go} api={api} currentUser={currentUser} />
     if (route === '/dashboard/documents') return <DashDocuments api={api} />
-    if (route === '/dashboard/billing') return <DashBilling />
+    if (route === '/dashboard/billing') return <DashBilling api={api} />
     if (route === '/admin') return <Admin go={go} api={api} />
     if (route === '/admin/providers') return <AdminProviders go={go} api={api} />
     if (route === '/admin/documents') return <AdminDocuments />
