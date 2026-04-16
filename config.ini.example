@@ -1,0 +1,26 @@
+[flask]
+# Generate with: python3 -c "import secrets; print(secrets.token_hex(32))"
+secret_key = CHANGE_ME_TO_A_LONG_RANDOM_STRING
+env = production
+debug = false
+
+[mysql]
+# PythonAnywhere: host = <username>.mysql.pythonanywhere-services.com
+host = 127.0.0.1
+port = 3306
+user = your_db_user
+password = your_db_password
+database = your_db_name
+charset = utf8mb4
+
+[email]
+smtp_host = smtp.gmail.com
+smtp_port = 587
+smtp_user = your_email@gmail.com
+smtp_password = your_gmail_app_password
+from_email = StepServe <noreply@stepserve.com>
+admin_notify = admin@stepserve.com
+recipient = admin@stepserve.com
+
+[api]
+base_url = http://127.0.0.1:8000/api/v1
