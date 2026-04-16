@@ -102,6 +102,22 @@ SCHEMA_SQL = [
 ]
 
 
+SEED_CATEGORIES = [
+    ("Cleaning", "cleaning"),
+    ("Landscaping", "landscaping"),
+    ("Plumbing", "plumbing"),
+    ("Electrical", "electrical"),
+    ("Carpentry", "carpentry"),
+    ("Painting", "painting"),
+    ("HVAC", "hvac"),
+    ("Moving", "moving"),
+    ("Pet Care", "pet-care"),
+    ("Windows", "windows"),
+    ("Renovation", "renovation"),
+    ("Other", "other"),
+]
+
+
 def main() -> None:
     conn = pymysql.connect(
         host=settings.mysql_host,
@@ -116,8 +132,13 @@ def main() -> None:
         with conn.cursor() as cur:
             for statement in SCHEMA_SQL:
                 cur.execute(statement)
+            for name, slug in SEED_CATEGORIES:
+                cur.execute(
+                    "INSERT IGNORE INTO categories (name, slug) VALUES (%s, %s)",
+                    (name, slug),
+                )
         conn.commit()
-        print("Database tables created/verified using direct SQL.")
+        print("Database tables created/verified. Seed categories inserted.")
     finally:
         conn.close()
 

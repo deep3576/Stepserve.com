@@ -1,345 +1,1191 @@
-import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import { useState, useEffect, useMemo } from 'react'
+import Nav from './components/Nav'
+import Footer from './components/Footer'
+import {
+  getStoredToken, storeToken, clearToken, createApiClient,
+  serviceToProvider, CATEGORY_META,
+  apiRegister, apiLogin, apiGetMe, apiSaveProviderProfile, apiGetProviderDashboard,
+  apiGetCategories, apiGetHome, apiSearchServices, apiCreateService,
+  apiAdminOverview, apiAdminUsers, apiAdminBookings, apiAdminUpdateUserStatus,
+  apiAdminCreateCategory,
+} from './api'
 
-function formatPrice(price) {
-  const n = Number(price || 0);
-  return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
+// ── Design tokens ──────────────────────────────────────────
+const G = '#0a7c5c', GD = '#085e47', GL = '#f2f9f6'
+const st = {
+  btnG: { background: G, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
+  btnO: { background: '#fff', color: '#333', border: '1.5px solid #ddd', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 500 },
+  btnSm: { background: G, color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 },
+  input: { border: '1.5px solid #ddd', borderRadius: 8, padding: '10px 14px', fontSize: 14, width: '100%', outline: 'none', fontFamily: 'inherit', background: '#fff' },
+  label: { fontSize: 13, fontWeight: 600, color: '#555', display: 'block', marginBottom: 5 },
+  card: { border: '1px solid #eee', borderRadius: 12, padding: '20px', background: '#fff' },
+  wrap: { maxWidth: 1140, margin: '0 auto', padding: '32px 20px' },
+  h1: { fontSize: 28, fontWeight: 700, letterSpacing: -0.5, marginBottom: 12, color: '#1a1a1a' },
+  h2: { fontSize: 21, fontWeight: 700, letterSpacing: -0.3, marginBottom: 14, color: '#1a1a1a' },
+  h3: { fontSize: 16, fontWeight: 600, marginBottom: 8, color: '#1a1a1a' },
+  muted: { color: '#888', fontSize: 14 },
+  badge: (color = '#e1f5ee', text = G) => ({ background: color, color: text, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, display: 'inline-block' }),
+  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
 }
 
-function ListingCard({ item }) {
-  return (
-    <article className="listing-card">
-      <div className="thumb">{item.title?.slice(0, 2).toUpperCase() || 'AD'}</div>
-      <div className="listing-body">
-        <h4>{item.title}</h4>
-        <p>{item.description}</p>
-        <div className="meta-row">
-          <strong>{formatPrice(item.price)}</strong>
-          <span>{item.location || 'Nearby'}</span>
-        </div>
-        <small>{item.provider_name || 'Stepserve seller'}</small>
-      </div>
-    </article>
-  );
-}
+// ── Static fallback data ────────────────────────────────────
+const MOCK_CATS = [
+  { id: 1, name: 'Cleaning', slug: 'cleaning', services_count: 24 },
+  { id: 2, name: 'Landscaping', slug: 'landscaping', services_count: 18 },
+  { id: 3, name: 'Plumbing', slug: 'plumbing', services_count: 15 },
+  { id: 4, name: 'Electrical', slug: 'electrical', services_count: 12 },
+  { id: 5, name: 'Carpentry', slug: 'carpentry', services_count: 9 },
+  { id: 6, name: 'Painting', slug: 'painting', services_count: 11 },
+  { id: 7, name: 'HVAC', slug: 'hvac', services_count: 8 },
+  { id: 8, name: 'Moving', slug: 'moving', services_count: 7 },
+  { id: 9, name: 'Pet Care', slug: 'pet-care', services_count: 19 },
+  { id: 10, name: 'Windows', slug: 'windows', services_count: 6 },
+  { id: 11, name: 'Renovation', slug: 'renovation', services_count: 14 },
+  { id: 12, name: 'Other', slug: 'other', services_count: 5 },
+]
 
-export default function App() {
-  const [baseUrl, setBaseUrl] = useState(() => (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'));
-  const [token, setToken] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [auth, setAuth] = useState({ mode: 'login', email: '', password: '', role: 'customer' });
+const MOCK_PROVIDERS = [
+  { id: 1, name: 'Sparkle Clean Co.', city: 'Cambridge, ON', cat: 'Cleaning', rating: 5, reviews: 42, price: 'From $80/visit', cert: true, insured: false, icon: '🧹', bg: '#e0f0eb', bio: 'Professional residential and commercial cleaning since 2015.' },
+  { id: 2, name: 'Green Thumb Landscapes', city: 'Kitchener, ON', cat: 'Landscaping', rating: 5, reviews: 37, price: 'Free estimate', cert: true, insured: true, icon: '🌿', bg: '#e3f2e8', bio: 'Award-winning landscape design and maintenance.' },
+  { id: 3, name: "Mike's Plumbing & Drain", city: 'Cambridge, ON', cat: 'Plumbing', rating: 4, reviews: 29, price: '$95/hr', cert: false, insured: true, icon: '🔧', bg: '#e8eef6', bio: 'Licensed master plumber with 20+ years experience.' },
+  { id: 4, name: 'ProFinish Painting', city: 'Waterloo, ON', cat: 'Painting', rating: 5, reviews: 18, price: 'Free estimate', cert: true, insured: false, icon: '🎨', bg: '#fef8ec', bio: 'Interior and exterior painting. Serving Waterloo Region for 12 years.' },
+  { id: 5, name: 'Watts Up Electric', city: 'Guelph, ON', cat: 'Electrical', rating: 5, reviews: 54, price: '$110/hr', cert: true, insured: true, icon: '⚡', bg: '#fdecea', bio: 'Licensed electrical contractor. EV charger installs, panel upgrades.' },
+  { id: 6, name: 'ComfortZone HVAC', city: 'Kitchener, ON', cat: 'HVAC', rating: 5, reviews: 31, price: 'From $120/visit', cert: true, insured: true, icon: '❄️', bg: '#e6f4f0', bio: 'Furnace, A/C, heat pump installs and repairs. TSSA certified.' },
+]
 
-  const [search, setSearch] = useState({ query: '', location: '', min_price: '', max_price: '' });
-  const [home, setHome] = useState({ categories: [], featured: [], latest: [], top_locations: [] });
-  const [results, setResults] = useState([]);
+// ── Helpers ─────────────────────────────────────────────────
+const Stars = ({ n = 5 }) => <span style={{ color: '#f5a623', fontSize: 13 }}>{Array(n).fill('★').join('')}{Array(5 - n).fill('☆').join('')}</span>
 
-  const [providerProfile, setProviderProfile] = useState({ full_name: '', bio: '', location: '', hourly_rate: '' });
-  const [adForm, setAdForm] = useState({ category_id: '', title: '', description: '', price: '' });
+const Spinner = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+    <div style={{ width: 32, height: 32, border: `3px solid #eee`, borderTop: `3px solid ${G}`, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+    <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+  </div>
+)
 
-  const [adminOverview, setAdminOverview] = useState(null);
-  const [adminUsers, setAdminUsers] = useState([]);
-  const [adminBookings, setAdminBookings] = useState([]);
+const Banner = ({ msg, type = 'success' }) => msg ? (
+  <div style={{ margin: '0 0 16px', padding: '11px 16px', borderRadius: 8, fontSize: 14, background: type === 'success' ? '#ecfff2' : '#fff0f0', border: `1px solid ${type === 'success' ? '#bdeccd' : '#ffd6db'}`, color: type === 'success' ? '#065f46' : '#9f1239' }}>
+    {msg}
+  </div>
+) : null
 
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-
-  const api = useMemo(() => {
-    const client = axios.create({ baseURL: baseUrl });
-    client.interceptors.request.use((config) => {
-      if (token) config.headers.Authorization = `Bearer ${token}`;
-      return config;
-    });
-    return client;
-  }, [baseUrl, token]);
-
-  const loadHome = async () => {
-    try {
-      const { data } = await api.get('/stepserve/home');
-      setHome(data);
-      setResults(data.latest || []);
-      setError('');
-    } catch {
-      setError('Could not load Stepserve feed. Check API base URL and backend status.');
-    }
-  };
-
-  const loadMe = async () => {
-    if (!token) {
-      setCurrentUser(null);
-      return;
-    }
-    try {
-      const { data } = await api.get('/auth/me');
-      setCurrentUser(data);
-    } catch {
-      setCurrentUser(null);
-      setError('Session is invalid. Please login again.');
-    }
-  };
-
-  useEffect(() => {
-    loadHome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api]);
-
-  useEffect(() => {
-    loadMe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  const runSearch = async (e) => {
-    e.preventDefault();
-    try {
-      const { data } = await api.get('/search/services', {
-        params: {
-          query: search.query || undefined,
-          location: search.location || undefined,
-          min_price: search.min_price || undefined,
-          max_price: search.max_price || undefined
-        }
-      });
-      setResults(data);
-      setError('');
-    } catch {
-      setError('Search failed. Check your filters and API connectivity.');
-    }
-  };
-
-  const quickLocationSearch = async (location) => {
-    setSearch((prev) => ({ ...prev, location }));
-    try {
-      const { data } = await api.get('/search/services', { params: { location } });
-      setResults(data);
-    } catch {
-      setError('Unable to filter by location right now.');
-    }
-  };
-
-  const submitAuth = async (e) => {
-    e.preventDefault();
-    setNotice('');
-    setError('');
-    try {
-      const endpoint = auth.mode === 'register' ? '/auth/register' : '/auth/login';
-      const payload = auth.mode === 'register'
-        ? { email: auth.email, password: auth.password, role: auth.role }
-        : { email: auth.email, password: auth.password };
-      const { data } = await api.post(endpoint, payload);
-      setToken(data.access_token);
-      setNotice(auth.mode === 'register' ? 'Account created and logged in.' : 'Logged in successfully.');
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Authentication failed.');
-    }
-  };
-
-  const logout = () => {
-    setToken('');
-    setCurrentUser(null);
-    setNotice('Logged out. Public browsing is still available.');
-  };
-
-  const upsertProviderProfile = async (e) => {
-    e.preventDefault();
-    setNotice('');
-    setError('');
-    try {
-      await api.post('/providers/profile', {
-        ...providerProfile,
-        hourly_rate: providerProfile.hourly_rate ? Number(providerProfile.hourly_rate) : null
-      });
-      setNotice('Handyman profile saved. You can post ads now.');
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Could not save provider profile.');
-    }
-  };
-
-  const createAd = async (e) => {
-    e.preventDefault();
-    setNotice('');
-    setError('');
-    try {
-      await api.post('/services', {
-        category_id: Number(adForm.category_id),
-        title: adForm.title,
-        description: adForm.description,
-        price: Number(adForm.price)
-      });
-      setNotice('Ad posted successfully on Stepserve.');
-      setAdForm({ category_id: '', title: '', description: '', price: '' });
-      await loadHome();
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Could not post ad. Ensure provider account/profile exists.');
-    }
-  };
-
-  const loadAdminPanel = async () => {
-    try {
-      const [overviewRes, usersRes, bookingsRes] = await Promise.all([
-        api.get('/admin/overview'),
-        api.get('/admin/users'),
-        api.get('/admin/bookings')
-      ]);
-      setAdminOverview(overviewRes.data);
-      setAdminUsers(usersRes.data || []);
-      setAdminBookings(bookingsRes.data || []);
-      setError('');
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Unable to load admin panel data.');
-    }
-  };
-
-  useEffect(() => {
-    if (currentUser?.role === 'admin') {
-      loadAdminPanel();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, api]);
-
-  return (
-    <div className="karrot-shell">
-      <header className="topbar">
-        <div className="brand">Stepserve</div>
-        <nav>
-          <a href="#featured">Featured</a>
-          <a href="#latest">Latest</a>
-          <a href="#account">Account</a>
-        </nav>
-        <button type="button" className="sell-cta" onClick={() => document.getElementById('account')?.scrollIntoView({ behavior: 'smooth' })}>Sell on Stepserve</button>
-      </header>
-
-      <section className="hero">
-        <div>
-          <h1>Your local neighborhood marketplace, powered by Stepserve</h1>
-          <p>Karrot-inspired local-first design with search-first browsing, secure role-based posting, and admin controls.</p>
-          <form className="search-row" onSubmit={runSearch}>
-            <input placeholder="Search ads" value={search.query} onChange={(e) => setSearch({ ...search, query: e.target.value })} />
-            <input placeholder="Neighborhood" value={search.location} onChange={(e) => setSearch({ ...search, location: e.target.value })} />
-            <input placeholder="Min $" value={search.min_price} onChange={(e) => setSearch({ ...search, min_price: e.target.value })} />
-            <input placeholder="Max $" value={search.max_price} onChange={(e) => setSearch({ ...search, max_price: e.target.value })} />
-            <button type="submit">Search</button>
-          </form>
-        </div>
-        <div className="hero-card">
-          <h3>Stepserve nearby stats</h3>
-          <p><strong>{home.latest.length}</strong> active local ads</p>
-          <p><strong>{home.categories.length}</strong> categories</p>
-          <p><strong>{home.top_locations.length}</strong> popular locations</p>
-          <div className="connection-box">
-            <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="API base URL" />
-            <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="JWT token" />
-          </div>
-        </div>
-      </section>
-
-      <section className="category-strip">
-        {home.categories.map((cat) => (
-          <button key={cat.id} type="button" onClick={() => setSearch((prev) => ({ ...prev, query: cat.name }))}>
-            {cat.name}<span>{cat.services_count}</span>
-          </button>
-        ))}
-      </section>
-
-      {notice ? <p className="success-banner">{notice}</p> : null}
-      {error ? <p className="error-banner">{error}</p> : null}
-
-      <main className="content-grid">
-        <aside className="side-panel" id="account">
-          <h3>{currentUser ? `Signed in as ${currentUser.role}` : 'Login / Register'}</h3>
-          <form className="auth-form" onSubmit={submitAuth}>
-            <div className="mode-toggle">
-              <button type="button" className={auth.mode === 'login' ? 'active' : ''} onClick={() => setAuth((s) => ({ ...s, mode: 'login' }))}>Login</button>
-              <button type="button" className={auth.mode === 'register' ? 'active' : ''} onClick={() => setAuth((s) => ({ ...s, mode: 'register' }))}>Register</button>
-            </div>
-            <input placeholder="Email" type="email" value={auth.email} onChange={(e) => setAuth((s) => ({ ...s, email: e.target.value }))} required />
-            <input placeholder="Password" type="password" value={auth.password} onChange={(e) => setAuth((s) => ({ ...s, password: e.target.value }))} required />
-            {auth.mode === 'register' ? (
-              <select value={auth.role} onChange={(e) => setAuth((s) => ({ ...s, role: e.target.value }))}>
-                <option value="customer">Customer</option>
-                <option value="provider">Handyman/Provider</option>
-              </select>
-            ) : null}
-            <button type="submit">{auth.mode === 'register' ? 'Create account' : 'Login'}</button>
-          </form>
-          {currentUser ? <button className="ghost" type="button" onClick={logout}>Logout</button> : null}
-
-          <h3>Nearby areas</h3>
-          <ul>
-            {(home.top_locations || []).map((loc) => (
-              <li key={loc.location}>
-                <button type="button" onClick={() => quickLocationSearch(loc.location)}>{loc.location}</button>
-                <span>{loc.listings_count}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        <section>
-          {currentUser?.role === 'provider' ? (
-            <div className="panel-grid">
-              <section className="role-panel">
-                <h3>Handyman profile (required for posting)</h3>
-                <form className="stack-form" onSubmit={upsertProviderProfile}>
-                  <input placeholder="Full name" value={providerProfile.full_name} onChange={(e) => setProviderProfile({ ...providerProfile, full_name: e.target.value })} required />
-                  <input placeholder="Location" value={providerProfile.location} onChange={(e) => setProviderProfile({ ...providerProfile, location: e.target.value })} />
-                  <input placeholder="Hourly rate" value={providerProfile.hourly_rate} onChange={(e) => setProviderProfile({ ...providerProfile, hourly_rate: e.target.value })} />
-                  <textarea placeholder="Bio" value={providerProfile.bio} onChange={(e) => setProviderProfile({ ...providerProfile, bio: e.target.value })} />
-                  <button type="submit">Save profile</button>
-                </form>
-              </section>
-
-              <section className="role-panel">
-                <h3>Post new ad</h3>
-                <form className="stack-form" onSubmit={createAd}>
-                  <select value={adForm.category_id} onChange={(e) => setAdForm({ ...adForm, category_id: e.target.value })} required>
-                    <option value="">Select category</option>
-                    {home.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <input placeholder="Title" value={adForm.title} onChange={(e) => setAdForm({ ...adForm, title: e.target.value })} required />
-                  <textarea placeholder="Description" value={adForm.description} onChange={(e) => setAdForm({ ...adForm, description: e.target.value })} required />
-                  <input placeholder="Price" value={adForm.price} onChange={(e) => setAdForm({ ...adForm, price: e.target.value })} required />
-                  <button type="submit">Publish ad</button>
-                </form>
-              </section>
-            </div>
-          ) : null}
-
-          {currentUser?.role === 'admin' ? (
-            <section className="role-panel">
-              <h3>Stepserve Admin Panel</h3>
-              <div className="admin-stats">
-                <span>Users {adminOverview?.users_count ?? '-'}</span>
-                <span>Services {adminOverview?.services_count ?? '-'}</span>
-                <span>Bookings {adminOverview?.bookings_count ?? '-'}</span>
-                <span>Paid {formatPrice(adminOverview?.paid_total ?? 0)}</span>
-              </div>
-              <div className="admin-grid">
-                <ul className="compact-list">
-                  {adminUsers.slice(0, 10).map((u) => <li key={u.id}>{u.email} · {u.role}</li>)}
-                </ul>
-                <ul className="compact-list">
-                  {adminBookings.slice(0, 10).map((b) => <li key={b.id}>#{b.id} · {b.status} · {formatPrice(b.total_price)}</li>)}
-                </ul>
-              </div>
-            </section>
-          ) : null}
-
-          <div className="section-head" id="featured">
-            <h3>Featured in your neighborhood</h3>
-            <small>{home.featured.length} listings</small>
-          </div>
-          <div className="cards-grid cards-grid-featured">
-            {(home.featured || []).map((item) => <ListingCard key={`f-${item.id}`} item={item} />)}
-          </div>
-
-          <div className="section-head" id="latest">
-            <h3>Latest local ads</h3>
-            <small>{results.length} listings</small>
-          </div>
-          <div className="cards-grid">
-            {results.map((item) => <ListingCard key={`r-${item.id}`} item={item} />)}
-          </div>
-        </section>
-      </main>
+// ── ProviderCard ────────────────────────────────────────────
+const ProviderCard = ({ p, go }) => (
+  <div onClick={() => go('/providers/' + p.id)}
+    style={{ border: '1px solid #eee', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', background: '#fff', transition: 'box-shadow 0.15s' }}
+    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.09)'}
+    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
+    <div style={{ background: p.bg, aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, position: 'relative' }}>
+      {p.icon}
+      {p.cert && <span style={{ ...st.badge(), position: 'absolute', top: 8, left: 8 }}>✓ Certified</span>}
+      {p.insured && !p.cert && <span style={{ ...st.badge('#dbeafe', '#1a6eb5'), position: 'absolute', top: 8, left: 8 }}>✓ Insured</span>}
     </div>
-  );
+    <div style={{ padding: '11px 13px 14px' }}>
+      <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+      <div style={{ fontSize: 12, color: '#888', margin: '3px 0' }}>{p.city} · {p.cat}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}><Stars n={p.rating} /><span style={{ fontSize: 12, color: '#aaa' }}>({p.reviews})</span></div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: G, marginTop: 5 }}>{p.price}</div>
+    </div>
+  </div>
+)
+
+// ── CatTabs ─────────────────────────────────────────────────
+const CatTabs = ({ active, setActive, categories }) => {
+  const tabs = ['All', ...categories.map(c => {
+    const meta = CATEGORY_META[c.name] || { icon: '🔍' }
+    return `${meta.icon} ${c.name}`
+  })]
+  return (
+    <div style={{ borderBottom: '1px solid #eee', background: '#fff', position: 'sticky', top: 60, zIndex: 100 }}>
+      <div style={{ maxWidth: 1140, margin: '0 auto', padding: '0 20px', display: 'flex', gap: 4, overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {tabs.map(t => (
+          <div key={t} onClick={() => setActive(t)}
+            style={{ flexShrink: 0, padding: '12px 15px', fontSize: 13, fontWeight: 500, cursor: 'pointer', color: active === t ? G : '#666', borderBottom: active === t ? `2px solid ${G}` : '2px solid transparent', whiteSpace: 'nowrap' }}>
+            {t}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── PAGES ───────────────────────────────────────────────────
+
+const Home = ({ go, categories, providers, loading }) => {
+  const [tab, setTab] = useState('All')
+  const filtered = tab === 'All' ? providers : providers.filter(p => tab.includes(p.cat))
+  return (
+    <div>
+      <div style={{ background: GL, padding: '52px 20px 44px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 'clamp(26px,4vw,44px)', fontWeight: 700, letterSpacing: -1, lineHeight: 1.15, marginBottom: 12 }}>
+          Find trusted local <span style={{ color: G }}>service pros</span> near you
+        </h1>
+        <p style={{ color: '#666', fontSize: 16, marginBottom: 28 }}>Verified, insured, and reviewed — right in your neighbourhood.</p>
+        <div style={{ display: 'flex', maxWidth: 600, margin: '0 auto 20px', border: '1.5px solid #ccc', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+          <input style={{ flex: 1, border: 'none', outline: 'none', padding: '13px 16px', fontSize: 15 }} placeholder="e.g. house cleaning, plumber..." />
+          <select style={{ border: 'none', borderLeft: '1px solid #eee', outline: 'none', padding: '0 12px', fontSize: 13, color: '#444', background: '#fff', cursor: 'pointer' }}>
+            <option>Cambridge, ON</option><option>Toronto, ON</option><option>Kitchener, ON</option>
+          </select>
+          <button onClick={() => go('/search')} style={{ background: G, border: 'none', color: '#fff', padding: '0 24px', fontSize: 15, fontWeight: 500, cursor: 'pointer' }}>Search</button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center', fontSize: 13 }}>
+          <span style={{ color: '#888' }}>Trending:</span>
+          {['house cleaning', 'lawn care', 'plumber', 'electrician', 'painter', 'snow removal', 'handyman'].map(t => (
+            <span key={t} onClick={() => go('/search')} style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: '#444', cursor: 'pointer' }}>{t}</span>
+          ))}
+        </div>
+      </div>
+      <CatTabs active={tab} setActive={setTab} categories={categories} />
+      <div style={st.wrap}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={st.h2}>Providers near Cambridge, ON</h2>
+          <span onClick={() => go('/search')} style={{ fontSize: 13, color: G, cursor: 'pointer' }}>See all →</span>
+        </div>
+        {loading ? <Spinner /> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 16, marginBottom: 48 }}>
+            {filtered.length > 0
+              ? filtered.map(p => <ProviderCard key={p.id} p={p} go={go} />)
+              : <p style={st.muted}>No providers found yet. Be the first to list your business!</p>}
+          </div>
+        )}
+        <div style={{ background: GL, borderRadius: 12, padding: '24px 28px', display: 'flex', gap: 28, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 48 }}>
+          {[['🪪', 'ID Verified', 'Every provider is identity-checked'], ['📄', 'Certs Reviewed', 'Credentials verified by our team'], ['🛡️', 'Insured', 'Badge-marked liability coverage'], ['⭐', 'Real Reviews', 'From verified customers only']].map(([ic, t, s]) => (
+            <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#c8e8d9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>{ic}</div>
+              <div><div style={{ fontSize: 13, fontWeight: 600 }}>{t}</div><div style={{ fontSize: 12, color: '#777' }}>{s}</div></div>
+            </div>
+          ))}
+        </div>
+        <div style={{ border: '1px solid #eee', borderRadius: 14, padding: '32px', display: 'grid', gridTemplateColumns: '1fr auto', gap: 32, alignItems: 'center', marginBottom: 48 }}>
+          <div>
+            <h2 style={st.h2}>Grow your local service business</h2>
+            <p style={{ color: '#666', fontSize: 14, marginBottom: 20, lineHeight: 1.7, maxWidth: 480 }}>StepServe puts your profile in front of homeowners actively searching for what you offer — all for less than a coffee a week.</p>
+            {['Full profile with photos & reviews', 'Show up in local search by city & category', 'Display certifications and insurance badges', 'Manage everything from a simple dashboard'].map(b => (
+              <div key={b} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, marginBottom: 10 }}><span style={{ color: G, fontWeight: 700 }}>✓</span>{b}</div>
+            ))}
+            <button onClick={() => go('/register')} style={{ ...st.btnG, marginTop: 8, padding: '12px 24px', fontSize: 15 }}>List your business →</button>
+          </div>
+          <div style={{ background: GL, border: '1.5px solid #b8dfd0', borderRadius: 12, padding: '28px 32px', textAlign: 'center', flexShrink: 0 }}>
+            <div style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>One simple plan</div>
+            <div style={{ fontSize: 46, fontWeight: 800, color: G, letterSpacing: -2, lineHeight: 1 }}><sup style={{ fontSize: 20, verticalAlign: 'top', marginTop: 10, display: 'inline-block' }}>$</sup>5<sub style={{ fontSize: 15, fontWeight: 400, color: '#888' }}>/mo</sub></div>
+            <p style={{ fontSize: 13, color: '#888', margin: '8px 0 16px' }}>Everything included</p>
+            <button onClick={() => go('/register')} style={{ ...st.btnG, width: '100%', padding: 11 }}>Get started</button>
+          </div>
+        </div>
+        <div style={{ background: G, borderRadius: 14, padding: '32px 36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, color: '#fff' }}>
+          <div><h3 style={{ ...st.h3, color: '#fff', fontSize: 20, marginBottom: 6 }}>It's easier in the app</h3><p style={{ fontSize: 14, opacity: 0.85 }}>Browse local pros, save favourites, and leave reviews.</p></div>
+          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+            {['⬇ App Store', '⬇ Google Play'].map(b => <div key={b} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>{b}</div>)}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Search ──────────────────────────────────────────────────
+const Search = ({ go, categories, api }) => {
+  const [tab, setTab] = useState('All')
+  const [rating, setRating] = useState('Any')
+  const [cert, setCert] = useState(false)
+  const [insured, setInsured] = useState(false)
+  const [locationFilter, setLocationFilter] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  const runSearch = async () => {
+    setLoading(true)
+    try {
+      const catName = tab === 'All' ? null : categories.find(c => tab.includes(c.name))?.name
+      const catObj = catName ? categories.find(c => c.name === catName) : null
+      const raw = await apiSearchServices(api, {
+        location: locationFilter || undefined,
+        category_id: catObj?.id || undefined,
+      })
+      let mapped = raw.map(s => serviceToProvider(s, categories))
+      if (cert) mapped = mapped.filter(p => p.cert)
+      if (insured) mapped = mapped.filter(p => p.insured)
+      setResults(mapped)
+    } catch {
+      setResults([])
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { runSearch() }, [tab, api])
+
+  return (
+    <div>
+      <CatTabs active={tab} setActive={setTab} categories={categories} />
+      <div style={{ ...st.wrap, display: 'grid', gridTemplateColumns: '220px 1fr', gap: 28, alignItems: 'start' }}>
+        <div style={{ ...st.card, position: 'sticky', top: 110 }}>
+          <div style={{ fontWeight: 600, marginBottom: 14 }}>Filters</div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={st.label}>City / Postal code</div>
+            <input style={st.input} placeholder="Cambridge, ON" value={locationFilter} onChange={e => setLocationFilter(e.target.value)} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={st.label}>Min. rating</div>
+            <select style={st.input} value={rating} onChange={e => setRating(e.target.value)}>
+              {['Any', '★★★★★ 5', '★★★★ 4+', '★★★ 3+'].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
+              <input type="checkbox" checked={cert} onChange={e => setCert(e.target.checked)} /> Has certification
+            </label>
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
+              <input type="checkbox" checked={insured} onChange={e => setInsured(e.target.checked)} /> Liability insured
+            </label>
+          </div>
+          <button style={{ ...st.btnG, width: '100%' }} onClick={runSearch}>Apply filters</button>
+        </div>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+            <div><span style={{ fontWeight: 600 }}>{results.length} providers</span> <span style={{ color: '#888', fontSize: 14 }}>found</span></div>
+            <select style={{ ...st.input, width: 'auto', fontSize: 13, padding: '7px 12px' }}>
+              <option>Sort: Top rated</option><option>Sort: Newest</option><option>Sort: Price low</option>
+            </select>
+          </div>
+          {loading ? <Spinner /> : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(185px,1fr))', gap: 16 }}>
+              {results.length > 0
+                ? results.map(p => <ProviderCard key={p.id} p={p} go={go} />)
+                : <p style={st.muted}>No results found. Try adjusting your filters.</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Provider Profile ────────────────────────────────────────
+const ProviderProfile = ({ go, id, providers }) => {
+  const p = providers.find(x => x.id === parseInt(id)) || providers[0] || MOCK_PROVIDERS[0]
+  const reviews = [
+    { user: 'Sarah R.', city: 'Toronto', rating: 5, comment: 'Absolutely fantastic service, showed up on time and did a thorough job. Will book again!' },
+    { user: 'Michel B.', city: 'Montréal', rating: 5, comment: 'Super professional and friendly. Our house looks brand new.' },
+    { user: 'Dave K.', city: 'Calgary', rating: 4, comment: 'Great work, only minor delay on arrival but the quality was excellent.' },
+  ]
+  if (!p) return <div style={{ ...st.wrap, textAlign: 'center' }}><p style={st.muted}>Provider not found.</p><button onClick={() => go('/search')} style={st.btnG}>Back to search</button></div>
+  return (
+    <div style={st.wrap}>
+      <span onClick={() => go('/search')} style={{ fontSize: 13, color: G, cursor: 'pointer', display: 'block', marginBottom: 16 }}>← Back to search</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 28, alignItems: 'start' }}>
+        <div>
+          <div style={{ ...st.card, marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
+              <div style={{ width: 88, height: 88, borderRadius: 16, background: p.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, flexShrink: 0 }}>{p.icon}</div>
+              <div style={{ flex: 1 }}>
+                <h1 style={{ ...st.h1, fontSize: 22, marginBottom: 4 }}>{p.name}</h1>
+                <div style={{ color: '#888', fontSize: 14, marginBottom: 8 }}>{p.city}</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <span style={st.badge()}>{p.cat}</span>
+                  {p.cert && <span style={st.badge()}>✓ Certified</span>}
+                  {p.insured && <span style={st.badge('#dbeafe', '#1a6eb5')}>✓ Insured</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Stars n={p.rating} /><span style={{ fontSize: 13, color: '#888' }}>({p.reviews} reviews)</span></div>
+              </div>
+            </div>
+          </div>
+          <div style={{ ...st.card, marginBottom: 20 }}>
+            <h3 style={st.h3}>About</h3>
+            <p style={{ fontSize: 14, color: '#555', lineHeight: 1.7 }}>{p.bio}</p>
+          </div>
+          <div style={{ ...st.card, marginBottom: 20 }}>
+            <h3 style={st.h3}>Photo gallery</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              {[p.bg, '#f0e8f8', '#e8f0f8', '#f8f0e8'].map((c, i) => (
+                <div key={i} style={{ aspectRatio: '1', background: c, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>{p.icon}</div>
+              ))}
+            </div>
+          </div>
+          <div style={st.card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ ...st.h3, margin: 0 }}>Reviews ({p.reviews})</h3>
+              <button onClick={() => go('/review/' + p.id)} style={st.btnSm}>Leave a review</button>
+            </div>
+            {reviews.map((r, i) => (
+              <div key={i} style={{ borderTop: i > 0 ? '1px solid #f0f0f0' : 'none', paddingTop: i > 0 ? 14 : 0, marginTop: i > 0 ? 14 : 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{r.user} <span style={{ color: '#aaa', fontWeight: 400, fontSize: 12 }}>· {r.city}</span></div>
+                  <Stars n={r.rating} />
+                </div>
+                <p style={{ fontSize: 14, color: '#555' }}>{r.comment}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ position: 'sticky', top: 100 }}>
+          <div style={{ ...st.card, marginBottom: 16 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: G, marginBottom: 4 }}>{p.price}</div>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>Contact for a detailed quote</div>
+            <button style={{ ...st.btnG, width: '100%', marginBottom: 10, padding: 12 }}>Contact provider</button>
+            <button style={{ ...st.btnO, width: '100%', padding: 11 }}>Save to favourites</button>
+          </div>
+          <div style={{ ...st.card, fontSize: 13 }}>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>Provider details</div>
+            {[['Service area', p.city], ['Category', p.cat], ['Rating', `${p.rating}/5 stars`], ['Reviews', p.reviews]].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f5f5f5' }}>
+                <span style={{ color: '#888' }}>{k}</span><span style={{ fontWeight: 500 }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Categories ──────────────────────────────────────────────
+const Categories = ({ go, categories }) => (
+  <div style={st.wrap}>
+    <h1 style={st.h1}>All categories</h1>
+    <p style={{ color: '#666', marginBottom: 28 }}>Find verified service professionals in every category across Canada.</p>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 16 }}>
+      {categories.map(c => {
+        const meta = CATEGORY_META[c.name] || { icon: '🔍' }
+        return (
+          <div key={c.name} onClick={() => go('/search')}
+            style={{ ...st.card, textAlign: 'center', cursor: 'pointer', padding: '28px 16px' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = G; e.currentTarget.style.boxShadow = `0 2px 12px rgba(10,124,92,0.1)` }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#eee'; e.currentTarget.style.boxShadow = 'none' }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>{meta.icon}</div>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{c.name}</div>
+            <div style={{ fontSize: 12, color: '#aaa' }}>{c.services_count} providers</div>
+          </div>
+        )
+      })}
+    </div>
+  </div>
+)
+
+// ── Review ──────────────────────────────────────────────────
+const Review = ({ go, id, providers }) => {
+  const [stars, setStars] = useState(0)
+  const p = providers.find(x => x.id === parseInt(id)) || providers[0] || MOCK_PROVIDERS[0]
+  return (
+    <div style={{ ...st.wrap, maxWidth: 600 }}>
+      <span onClick={() => go('/providers/' + (p?.id || ''))} style={{ fontSize: 13, color: G, cursor: 'pointer', display: 'block', marginBottom: 20 }}>← Back to {p?.name}</span>
+      <h1 style={st.h1}>Leave a review</h1>
+      {p && (
+        <div style={{ ...st.card, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <div style={{ width: 50, height: 50, borderRadius: 10, background: p.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{p.icon}</div>
+            <div><div style={{ fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 13, color: '#888' }}>{p.city}</div></div>
+          </div>
+        </div>
+      )}
+      <div style={st.card}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ ...st.label, marginBottom: 10 }}>Your rating</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[1, 2, 3, 4, 5].map(n => (
+              <span key={n} onClick={() => setStars(n)} style={{ fontSize: 34, cursor: 'pointer', color: n <= stars ? '#f5a623' : '#ddd' }}>★</span>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 16 }}><label style={st.label}>Your name</label><input style={st.input} placeholder="e.g. Sarah R." /></div>
+        <div style={{ marginBottom: 16 }}><label style={st.label}>Email (not published)</label><input style={st.input} type="email" placeholder="you@example.com" /></div>
+        <div style={{ marginBottom: 20 }}><label style={st.label}>Your review</label><textarea style={{ ...st.input, height: 110, resize: 'vertical' }} placeholder="Share your experience with this provider..." /></div>
+        <button style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15 }}>Submit review</button>
+      </div>
+    </div>
+  )
+}
+
+// ── About ───────────────────────────────────────────────────
+const About = ({ go }) => (
+  <div style={st.wrap}>
+    <div style={{ maxWidth: 760, margin: '0 auto' }}>
+      <div style={{ textAlign: 'center', marginBottom: 48 }}>
+        <h1 style={{ ...st.h1, fontSize: 36 }}>About <span style={{ color: G }}>StepServe</span></h1>
+        <p style={{ fontSize: 17, color: '#555', lineHeight: 1.8 }}>We're on a mission to make hiring trusted local service professionals as easy as possible for Canadians.</p>
+      </div>
+      {[
+        ['Our mission', "StepServe was built to solve a simple problem: finding a reliable local tradesperson or service professional should not be stressful. We created a platform where every listed provider is identity-verified, and where customers can review certifications and insurance status before making contact."],
+        ['How it works', 'Providers pay a flat $5/month subscription to maintain a public profile on StepServe. Customers can browse for free — no account required. Search by category and city, view full profiles, read reviews, and contact providers directly.'],
+        ['Our standards', 'Every provider on StepServe goes through an email-verified registration. Certifications and liability insurance documents are uploaded and reviewed by our admin team. Verified credentials are displayed clearly with badges on each profile.'],
+        ['Built in Canada', 'StepServe is operated by Kingsman Software Solutions and is fully PIPEDA-compliant. We store your data securely in Canadian data centres and do not sell personal information to third parties.'],
+      ].map(([t, c]) => (
+        <div key={t} style={{ marginBottom: 32 }}>
+          <h2 style={{ ...st.h2, color: G }}>{t}</h2>
+          <p style={{ fontSize: 15, color: '#555', lineHeight: 1.8 }}>{c}</p>
+        </div>
+      ))}
+      <div style={{ textAlign: 'center', marginTop: 40 }}>
+        <button onClick={() => go('/register')} style={{ ...st.btnG, padding: '14px 32px', fontSize: 16 }}>Join StepServe today</button>
+      </div>
+    </div>
+  </div>
+)
+
+// ── Contact ─────────────────────────────────────────────────
+const Contact = () => (
+  <div style={{ ...st.wrap, maxWidth: 640 }}>
+    <h1 style={st.h1}>Contact us</h1>
+    <p style={{ color: '#666', marginBottom: 28 }}>Have a question or need help? Our team usually responds within one business day.</p>
+    <div style={st.card}>
+      <div style={{ marginBottom: 14 }}><label style={st.label}>Your name</label><input style={st.input} placeholder="Full name" /></div>
+      <div style={{ marginBottom: 14 }}><label style={st.label}>Email</label><input style={st.input} type="email" placeholder="you@example.com" /></div>
+      <div style={{ marginBottom: 14 }}>
+        <label style={st.label}>Topic</label>
+        <select style={st.input}><option>General inquiry</option><option>Provider support</option><option>Billing question</option><option>Report an issue</option><option>Other</option></select>
+      </div>
+      <div style={{ marginBottom: 20 }}><label style={st.label}>Message</label><textarea style={{ ...st.input, height: 140, resize: 'vertical' }} placeholder="Describe your question or issue..." /></div>
+      <button style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15 }}>Send message</button>
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24 }}>
+      {[['📧 Email', 'support@stepserve.com'], ['🕐 Response time', 'Within 1 business day']].map(([t, v]) => (
+        <div key={t} style={st.card}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{t}</div><div style={{ fontSize: 13, color: '#888' }}>{v}</div></div>
+      ))}
+    </div>
+  </div>
+)
+
+// ── Terms / Privacy ─────────────────────────────────────────
+const TextPage = ({ title, sections }) => (
+  <div style={{ ...st.wrap, maxWidth: 760 }}>
+    <h1 style={st.h1}>{title}</h1>
+    <p style={{ fontSize: 13, color: '#aaa', marginBottom: 28 }}>Last updated: April 2026</p>
+    {sections.map(([h, c]) => (
+      <div key={h} style={{ marginBottom: 24 }}>
+        <h3 style={st.h3}>{h}</h3>
+        <p style={{ fontSize: 14, color: '#555', lineHeight: 1.8 }}>{c}</p>
+      </div>
+    ))}
+  </div>
+)
+
+const Terms = () => <TextPage title="Terms of Service" sections={[
+  ['Acceptance', 'By accessing or using StepServe, you agree to be bound by these Terms of Service and all applicable laws and regulations.'],
+  ['Provider listings', 'Providers must be legally operating in their province and provide truthful information. StepServe reserves the right to remove any listing at its discretion.'],
+  ['Subscriptions', 'Provider subscriptions are billed monthly at $5 CAD via Stripe. You may cancel at any time; cancellation takes effect at the end of the current billing period.'],
+  ['Reviews', 'Reviews must be based on genuine experiences. False, defamatory, or spam reviews are prohibited and subject to removal.'],
+  ['Liability', 'StepServe is a directory service. We do not employ the providers listed on our platform and are not liable for services rendered.'],
+  ['Changes', 'We reserve the right to modify these terms at any time. Continued use of StepServe following changes constitutes acceptance.'],
+]} />
+
+const Privacy = () => <TextPage title="Privacy Policy" sections={[
+  ['What we collect', 'We collect your name, email address, province, and any information you voluntarily provide when creating a provider profile or leaving a review.'],
+  ['How we use it', 'Your information is used to operate the StepServe platform, communicate with you about your account, and improve our services.'],
+  ['PIPEDA compliance', 'StepServe complies with the Personal Information Protection and Electronic Documents Act (PIPEDA). You have the right to access and request correction of your personal data.'],
+  ['Third parties', 'We use Stripe for payment processing, AWS/Cloudflare for file storage, and SendGrid for transactional email. These services have their own privacy policies.'],
+  ['Data retention', 'Your data is retained for as long as your account is active. You may request deletion of your account and personal data at any time by contacting support.'],
+  ['Cookies', 'We use minimal cookies for authentication and analytics. You may disable cookies in your browser settings, though some features may not function correctly.'],
+]} />
+
+// ── Register (3-step, wired to API) ─────────────────────────
+const Register = ({ go, api, onLogin }) => {
+  const [step, setStep] = useState(1)
+  const [info, setInfo] = useState({ firstName: '', lastName: '', email: '', phone: '', city: '', province: 'ON', password: '' })
+  const [profile, setProfile] = useState({ categories: [], bio: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleStep1 = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const res = await apiRegister(api, { email: info.email, password: info.password, role: 'provider' })
+      storeToken(res.access_token)
+      onLogin(res.access_token)
+      setStep(2)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Registration failed. Email may already be in use.')
+    }
+    setLoading(false)
+  }
+
+  const handleStep2 = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const authApi = createApiClient(getStoredToken())
+      await apiSaveProviderProfile(authApi, {
+        full_name: `${info.firstName} ${info.lastName}`.trim() || info.email,
+        bio: profile.bio || null,
+        location: info.city ? `${info.city}, ${info.province}` : null,
+        hourly_rate: null,
+      })
+      setStep(3)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Could not save profile. Please try again.')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ ...st.wrap, maxWidth: 560 }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 28, borderRadius: 10, overflow: 'hidden', border: '1px solid #eee' }}>
+        {['1. Your info', '2. Categories', '3. Payment'].map((s, i) => (
+          <div key={s} style={{ flex: 1, padding: '11px', textAlign: 'center', fontSize: 13, fontWeight: step === i + 1 ? 600 : 400, background: step === i + 1 ? G : step > i + 1 ? '#e1f5ee' : '#fafafa', color: step === i + 1 ? '#fff' : step > i + 1 ? G : '#aaa', cursor: step > i + 1 ? 'pointer' : 'default' }} onClick={() => step > i + 1 && setStep(i + 1)}>{s}</div>
+        ))}
+      </div>
+      <Banner msg={error} type="error" />
+      {step === 1 && (
+        <div style={st.card}>
+          <h2 style={st.h2}>Create your provider profile</h2>
+          <div style={st.grid2}>
+            <div><label style={st.label}>First name</label><input style={st.input} placeholder="John" value={info.firstName} onChange={e => setInfo({ ...info, firstName: e.target.value })} /></div>
+            <div><label style={st.label}>Last name</label><input style={st.input} placeholder="Smith" value={info.lastName} onChange={e => setInfo({ ...info, lastName: e.target.value })} /></div>
+          </div>
+          <div style={{ marginTop: 14 }}><label style={st.label}>Email *</label><input style={st.input} type="email" placeholder="you@example.com" value={info.email} onChange={e => setInfo({ ...info, email: e.target.value })} /></div>
+          <div style={{ marginTop: 14 }}><label style={st.label}>Phone</label><input style={st.input} placeholder="+1 (519) 000-0000" value={info.phone} onChange={e => setInfo({ ...info, phone: e.target.value })} /></div>
+          <div style={{ marginTop: 14, ...st.grid2 }}>
+            <div><label style={st.label}>City</label><input style={st.input} placeholder="Cambridge" value={info.city} onChange={e => setInfo({ ...info, city: e.target.value })} /></div>
+            <div><label style={st.label}>Province</label>
+              <select style={st.input} value={info.province} onChange={e => setInfo({ ...info, province: e.target.value })}>
+                {['ON', 'BC', 'AB', 'QC', 'MB', 'SK', 'NS', 'NB', 'NL', 'PE'].map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginTop: 14 }}><label style={st.label}>Password *</label><input style={st.input} type="password" placeholder="Min. 8 characters" value={info.password} onChange={e => setInfo({ ...info, password: e.target.value })} /></div>
+          <button onClick={handleStep1} disabled={loading || !info.email || !info.password} style={{ ...st.btnG, width: '100%', padding: 13, marginTop: 20, fontSize: 15, opacity: loading ? 0.7 : 1 }}>
+            {loading ? 'Creating account…' : 'Continue →'}
+          </button>
+          <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 12 }}>Already registered? <span onClick={() => go('/login')} style={{ color: G, cursor: 'pointer' }}>Sign in</span></p>
+        </div>
+      )}
+      {step === 2 && (
+        <div style={st.card}>
+          <h2 style={st.h2}>Select your service categories</h2>
+          <p style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>Choose all categories that apply to your business.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 24 }}>
+            {Object.entries(CATEGORY_META).map(([name, meta]) => (
+              <label key={name} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 12px', border: '1.5px solid #eee', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
+                <input type="checkbox" checked={profile.categories.includes(name)} onChange={e => setProfile(p => ({ ...p, categories: e.target.checked ? [...p.categories, name] : p.categories.filter(c => c !== name) }))} />{meta.icon} {name}
+              </label>
+            ))}
+          </div>
+          <div style={{ marginBottom: 14 }}><label style={st.label}>Short bio</label><textarea style={{ ...st.input, height: 90 }} placeholder="Describe your business and services..." value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} /></div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setStep(1)} style={{ ...st.btnO, flex: 1 }}>← Back</button>
+            <button onClick={handleStep2} disabled={loading} style={{ ...st.btnG, flex: 2, opacity: loading ? 0.7 : 1 }}>{loading ? 'Saving…' : 'Continue →'}</button>
+          </div>
+        </div>
+      )}
+      {step === 3 && (
+        <div style={st.card}>
+          <h2 style={st.h2}>Start your subscription</h2>
+          <div style={{ background: GL, border: '1px solid #b8dfd0', borderRadius: 10, padding: '18px', marginBottom: 20, textAlign: 'center' }}>
+            <div style={{ fontSize: 32, fontWeight: 800, color: G }}>$5<span style={{ fontSize: 16, fontWeight: 400, color: '#888' }}>/month</span></div>
+            <p style={{ fontSize: 13, color: '#777', marginTop: 4 }}>Cancel anytime. No setup fees. Billed via Stripe.</p>
+          </div>
+          {['Full public profile listing', 'Appear in local search results', 'Upload certifications & insurance', 'Receive customer reviews', 'Provider dashboard access'].map(b => (
+            <div key={b} style={{ display: 'flex', gap: 8, fontSize: 14, marginBottom: 9 }}><span style={{ color: G }}>✓</span>{b}</div>
+          ))}
+          <button onClick={() => go('/dashboard')} style={{ ...st.btnG, width: '100%', padding: 13, marginTop: 20, fontSize: 15 }}>Go to Dashboard →</button>
+          <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', marginTop: 10 }}>Secured by Stripe. Your card is never stored on our servers.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Login ────────────────────────────────────────────────────
+const Login = ({ go, api, onLogin }) => {
+  const [form, setForm] = useState({ email: '', password: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleLogin = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const res = await apiLogin(api, form)
+      storeToken(res.access_token)
+      onLogin(res.access_token)
+      go('/dashboard')
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Invalid email or password.')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ ...st.wrap, maxWidth: 440 }}>
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <h1 style={{ ...st.h1, fontSize: 26 }}>Sign in to StepServe</h1>
+        <p style={{ color: '#888', fontSize: 14 }}>Provider accounts only. Customers browse without signing in.</p>
+      </div>
+      <div style={st.card}>
+        <Banner msg={error} type="error" />
+        <div style={{ marginBottom: 14 }}><label style={st.label}>Email</label><input style={st.input} type="email" placeholder="you@example.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+        <div style={{ marginBottom: 20 }}><label style={st.label}>Password</label><input style={st.input} type="password" placeholder="••••••••" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleLogin()} /></div>
+        <button onClick={handleLogin} disabled={loading || !form.email || !form.password} style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15, opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Signing in…' : 'Sign in'}
+        </button>
+        <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 14 }}>
+          <span style={{ color: G, cursor: 'pointer' }}>Forgot password?</span> · <span onClick={() => go('/register')} style={{ color: G, cursor: 'pointer' }}>Create account</span>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ── Dashboard ────────────────────────────────────────────────
+const Dashboard = ({ go, api, currentUser }) => {
+  const [data, setData] = useState({ services: [], bookings: [], uploads: [] })
+  const [profileForm, setProfileForm] = useState({ full_name: '', bio: '', location: '', hourly_rate: '' })
+  const [loading, setLoading] = useState(true)
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!api || !currentUser) return
+    apiGetProviderDashboard(api)
+      .then(d => {
+        setData(d)
+        // Pre-populate profile form if profile data exists in services
+      })
+      .catch(() => setError('Could not load dashboard. Make sure you have a provider account.'))
+      .finally(() => setLoading(false))
+  }, [api, currentUser])
+
+  const saveProfile = async () => {
+    setNotice(''); setError('')
+    try {
+      await apiSaveProviderProfile(api, {
+        full_name: profileForm.full_name || currentUser?.email,
+        bio: profileForm.bio || null,
+        location: profileForm.location || null,
+        hourly_rate: profileForm.hourly_rate ? Number(profileForm.hourly_rate) : null,
+      })
+      setNotice('Profile saved successfully.')
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Could not save profile.')
+    }
+  }
+
+  if (loading) return <div style={st.wrap}><Spinner /></div>
+
+  return (
+    <div style={st.wrap}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={st.h1}>My dashboard</h1>
+          <p style={{ color: '#888', fontSize: 14 }}>Welcome, {currentUser?.email}</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => go('/dashboard/documents')} style={st.btnO}>Documents</button>
+          <button onClick={() => go('/dashboard/billing')} style={st.btnO}>Billing</button>
+        </div>
+      </div>
+      <Banner msg={notice} type="success" />
+      <Banner msg={error} type="error" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
+        {[['Services listed', data.services.length, 'active'], ['Bookings', data.bookings.length, 'total'], ['Uploads', data.uploads.length, 'files'], ['Account', currentUser?.role || '-', currentUser?.is_active ? 'Active' : 'Inactive']].map(([l, v, s]) => (
+          <div key={l} style={{ background: '#f7f7f7', borderRadius: 10, padding: '16px' }}>
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{l}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a' }}>{v}</div>
+            <div style={{ fontSize: 12, color: '#aaa' }}>{s}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={st.card}>
+          <h3 style={st.h3}>Profile information</h3>
+          <div style={{ marginBottom: 12 }}><label style={st.label}>Full name</label><input style={st.input} placeholder="Your full name" value={profileForm.full_name} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} /></div>
+          <div style={{ marginBottom: 12 }}><label style={st.label}>Location (city, province)</label><input style={st.input} placeholder="Cambridge, ON" value={profileForm.location} onChange={e => setProfileForm({ ...profileForm, location: e.target.value })} /></div>
+          <div style={{ marginBottom: 12 }}><label style={st.label}>Hourly rate ($)</label><input style={st.input} placeholder="e.g. 75" type="number" value={profileForm.hourly_rate} onChange={e => setProfileForm({ ...profileForm, hourly_rate: e.target.value })} /></div>
+          <div style={{ marginBottom: 16 }}><label style={st.label}>Bio</label><textarea style={{ ...st.input, height: 90 }} placeholder="Describe your services..." value={profileForm.bio} onChange={e => setProfileForm({ ...profileForm, bio: e.target.value })} /></div>
+          <button onClick={saveProfile} style={{ ...st.btnG, padding: '10px 20px' }}>Save changes</button>
+        </div>
+        <div style={st.card}>
+          <h3 style={st.h3}>My services ({data.services.length})</h3>
+          {data.services.length === 0 ? (
+            <p style={st.muted}>No services yet. Post a new service to appear in search results.</p>
+          ) : (
+            data.services.slice(0, 5).map((s, i) => (
+              <div key={s.id} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : 'none', paddingTop: i > 0 ? 10 : 0, marginTop: i > 0 ? 10 : 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{s.title}</div>
+                <div style={{ fontSize: 12, color: '#888' }}>${Number(s.price).toFixed(2)} · {s.is_active ? '✅ Active' : '⏸ Inactive'}</div>
+              </div>
+            ))
+          )}
+          <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 14 }}>
+            <h3 style={{ ...st.h3, marginBottom: 10 }}>Recent bookings ({data.bookings.length})</h3>
+            {data.bookings.length === 0 ? <p style={st.muted}>No bookings yet.</p> : data.bookings.slice(0, 4).map((b, i) => (
+              <div key={b.id} style={{ fontSize: 13, padding: '6px 0', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Booking #{b.id} · <span style={{ color: '#888' }}>{b.status}</span></span>
+                <span style={{ fontWeight: 600 }}>${Number(b.total_price).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── DashDocuments ────────────────────────────────────────────
+const DashDocuments = ({ api }) => {
+  const [uploads, setUploads] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!api) return
+    api.get('/providers/uploads').then(r => setUploads(r.data)).catch(() => {})
+  }, [api])
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true); setNotice(''); setError('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      await api.post('/providers/uploads', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setNotice('File uploaded successfully.')
+      const r = await api.get('/providers/uploads')
+      setUploads(r.data)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Upload failed. Make sure your provider profile is set up first.')
+    }
+    setUploading(false)
+  }
+
+  return (
+    <div style={st.wrap}>
+      <h1 style={st.h1}>Documents</h1>
+      <p style={{ color: '#666', marginBottom: 24 }}>Upload certifications and liability insurance. Our team reviews within 1–2 business days.</p>
+      <Banner msg={notice} type="success" />
+      <Banner msg={error} type="error" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {[{ type: 'Certification', desc: 'Trade certificate, diploma, or professional licence' }, { type: 'Liability Insurance', desc: 'Current certificate of insurance (COI)' }].map(d => (
+          <div key={d.type} style={st.card}>
+            <h3 style={{ ...st.h3, marginBottom: 8 }}>{d.type}</h3>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>{d.desc}</p>
+            <label style={{ display: 'block', border: '2px dashed #ddd', borderRadius: 8, padding: '24px', textAlign: 'center', marginBottom: 14, cursor: 'pointer', color: '#aaa' }}>
+              <input type="file" style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png" onChange={handleUpload} disabled={uploading} />
+              <div style={{ fontSize: 28, marginBottom: 6 }}>📄</div>
+              <div style={{ fontSize: 13 }}>{uploading ? 'Uploading…' : 'Click to upload or drag & drop'}</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>PDF, JPG, PNG — max 10MB</div>
+            </label>
+          </div>
+        ))}
+      </div>
+      {uploads.length > 0 && (
+        <div style={{ ...st.card, marginTop: 20 }}>
+          <h3 style={st.h3}>Upload history</h3>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+            <thead><tr style={{ color: '#aaa', textAlign: 'left' }}>{['File', 'Type', 'Size', 'Uploaded'].map(h => <th key={h} style={{ padding: '6px 0', borderBottom: '1px solid #eee', fontWeight: 600 }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {uploads.map(u => (
+                <tr key={u.id}>
+                  <td style={{ padding: '8px 0', borderBottom: '1px solid #f5f5f5' }}>{u.file_name}</td>
+                  <td style={{ padding: '8px 0', borderBottom: '1px solid #f5f5f5', color: '#888' }}>{u.content_type || '—'}</td>
+                  <td style={{ padding: '8px 0', borderBottom: '1px solid #f5f5f5', color: '#888' }}>{u.file_size ? `${(u.file_size / 1024).toFixed(1)} KB` : '—'}</td>
+                  <td style={{ padding: '8px 0', borderBottom: '1px solid #f5f5f5', color: '#888' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── DashBilling (static) ──────────────────────────────────────
+const DashBilling = () => (
+  <div style={{ ...st.wrap, maxWidth: 640 }}>
+    <h1 style={st.h1}>Billing</h1>
+    <div style={{ ...st.card, marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>StepServe Provider — $5/month</div>
+          <div style={{ fontSize: 14, color: '#888', marginBottom: 12 }}>Next billing date: <strong style={{ color: '#333' }}>May 1, 2026</strong></div>
+          <span style={st.badge()}>✓ Active</span>
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: G }}>$5<span style={{ fontSize: 14, fontWeight: 400, color: '#888' }}>/mo</span></div>
+      </div>
+    </div>
+    <div style={{ ...st.card, marginBottom: 20 }}>
+      <h3 style={st.h3}>Payment method</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: '#f9f9f9', borderRadius: 8 }}>
+        <div style={{ fontSize: 22 }}>💳</div>
+        <div><div style={{ fontSize: 14, fontWeight: 500 }}>Visa ending in 4242</div><div style={{ fontSize: 12, color: '#888' }}>Expires 08/2027</div></div>
+        <button style={{ ...st.btnO, marginLeft: 'auto', fontSize: 12, padding: '6px 12px' }}>Update</button>
+      </div>
+    </div>
+    <button style={{ ...st.btnO, color: '#c0392b', borderColor: '#f5c6c6' }}>Cancel subscription</button>
+    <p style={{ fontSize: 12, color: '#aaa', marginTop: 8 }}>Cancelling will deactivate your profile at the end of the current billing period.</p>
+  </div>
+)
+
+// ── Admin ─────────────────────────────────────────────────────
+const Admin = ({ go, api }) => {
+  const [overview, setOverview] = useState(null)
+  const [recentUsers, setRecentUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!api) return
+    Promise.all([apiAdminOverview(api), apiAdminUsers(api)])
+      .then(([ov, users]) => { setOverview(ov); setRecentUsers(users.slice(0, 5)) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [api])
+
+  if (loading) return <div style={st.wrap}><Spinner /></div>
+
+  return (
+    <div style={st.wrap}>
+      <h1 style={st.h1}>Admin dashboard</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
+        {[['Total users', overview?.users_count ?? '—'], ['Services', overview?.services_count ?? '—'], ['Bookings', overview?.bookings_count ?? '—'], ['Revenue (paid)', overview ? `$${Number(overview.paid_total).toFixed(2)}` : '—']].map(([l, v]) => (
+          <div key={l} style={{ background: '#f7f7f7', borderRadius: 10, padding: '16px' }}>
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{l}</div>
+            <div style={{ fontSize: 24, fontWeight: 700 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={st.card}>
+          <h3 style={st.h3}>Recent users</h3>
+          {recentUsers.length === 0 ? <p style={st.muted}>No users yet.</p> : recentUsers.map((u, i) => (
+            <div key={u.id} onClick={() => go('/admin/providers')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: GL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                {u.role === 'provider' ? '🔧' : u.role === 'admin' ? '🛡️' : '👤'}
+              </div>
+              <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{u.email}</div><div style={{ fontSize: 12, color: '#aaa' }}>{u.role}</div></div>
+              <span style={st.badge(u.is_active ? '#e1f5ee' : '#fee', u.is_active ? G : '#c0392b')}>{u.is_active ? 'Active' : 'Inactive'}</span>
+            </div>
+          ))}
+          <div onClick={() => go('/admin/providers')} style={{ fontSize: 13, color: G, cursor: 'pointer', marginTop: 12 }}>Manage all users →</div>
+        </div>
+        <div style={st.card}>
+          <h3 style={st.h3}>Quick links</h3>
+          {[['👥 Users', '/admin/providers'], ['📄 Documents', '/admin/documents'], ['🏷️ Categories', '/admin/categories'], ['⭐ Reviews', '/admin/reviews'], ['⚙️ Settings', '/admin/settings']].map(([t, p]) => (
+            <div key={t} onClick={() => go(p)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: 14 }}>
+              <span>{t}</span><span style={{ color: '#aaa' }}>→</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── AdminProviders (wired to /admin/users) ────────────────────
+const AdminProviders = ({ go, api }) => {
+  const [users, setUsers] = useState([])
+  const [filter, setFilter] = useState('All')
+  const [loading, setLoading] = useState(true)
+  const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    if (!api) return
+    apiAdminUsers(api).then(setUsers).catch(() => {}).finally(() => setLoading(false))
+  }, [api])
+
+  const toggleStatus = async (userId, currentActive) => {
+    try {
+      await apiAdminUpdateUserStatus(api, userId, !currentActive)
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: !currentActive ? 1 : 0 } : u))
+      setNotice(`User #${userId} ${!currentActive ? 'activated' : 'deactivated'}.`)
+    } catch {
+      setNotice('Failed to update user status.')
+    }
+  }
+
+  const displayed = filter === 'All' ? users : users.filter(u => {
+    if (filter === 'Active') return u.is_active
+    if (filter === 'Inactive') return !u.is_active
+    if (filter === 'Providers') return u.role === 'provider'
+    if (filter === 'Customers') return u.role === 'customer'
+    return true
+  })
+
+  return (
+    <div style={st.wrap}>
+      <h1 style={st.h1}>User management</h1>
+      {notice && <Banner msg={notice} type="success" />}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <input style={{ ...st.input, maxWidth: 260 }} placeholder="Search users..." />
+        <select style={{ ...st.input, width: 'auto' }} value={filter} onChange={e => setFilter(e.target.value)}>
+          {['All', 'Active', 'Inactive', 'Providers', 'Customers'].map(s => <option key={s}>{s}</option>)}
+        </select>
+      </div>
+      {loading ? <Spinner /> : (
+        <div style={{ ...st.card, padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+            <thead><tr style={{ background: '#f9f9f9' }}>{['ID', 'Email', 'Role', 'Status', 'Joined', 'Actions'].map(h => <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#666', borderBottom: '1px solid #eee' }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {displayed.map((u, i) => (
+                <tr key={u.id} style={{ background: i % 2 ? '#fafafa' : '#fff' }}>
+                  <td style={{ padding: '10px 14px', color: '#888' }}>#{u.id}</td>
+                  <td style={{ padding: '10px 14px', fontWeight: 500 }}>{u.email}</td>
+                  <td style={{ padding: '10px 14px' }}><span style={st.badge(u.role === 'admin' ? '#fdecea' : u.role === 'provider' ? '#e1f5ee' : '#f0f0ff', u.role === 'admin' ? '#c0392b' : u.role === 'provider' ? G : '#555')}>{u.role}</span></td>
+                  <td style={{ padding: '10px 14px' }}><span style={st.badge(u.is_active ? '#e1f5ee' : '#fee', u.is_active ? G : '#c0392b')}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
+                  <td style={{ padding: '10px 14px', color: '#888' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <button onClick={() => toggleStatus(u.id, u.is_active)} style={{ ...st.btnO, padding: '4px 10px', fontSize: 12, color: u.is_active ? '#c0392b' : G, borderColor: u.is_active ? '#f5c6c6' : '#b8dfd0' }}>
+                      {u.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {displayed.length === 0 && <p style={{ ...st.muted, padding: 20 }}>No users found.</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── AdminDocuments (static) ────────────────────────────────────
+const AdminDocuments = () => (
+  <div style={st.wrap}>
+    <h1 style={st.h1}>Document review</h1>
+    <p style={{ color: '#666', marginBottom: 24 }}>Review uploaded certifications and insurance documents from providers.</p>
+    {[['ProFinish Painting', 'insurance_coi.pdf', 'Insurance COI', 'Uploaded Apr 14, 2026'], ["Mike's Plumbing", 'trade_cert.pdf', 'Trade Certificate', 'Uploaded Apr 13, 2026']].map(([n, f, t, d]) => (
+      <div key={n} style={{ ...st.card, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, marginBottom: 3 }}>{n}</div>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>{t} · <span style={{ color: G }}>{f}</span> · {d}</div>
+            <span style={st.badge('#fef8e6', '#b07800')}>⏳ Pending review</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={{ ...st.btnG, fontSize: 12, padding: '8px 14px' }}>✓ Approve</button>
+            <button style={{ ...st.btnO, fontSize: 12, color: '#c0392b', borderColor: '#f5c6c6' }}>✕ Reject</button>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+// ── AdminCategories (wired to API) ────────────────────────────
+const AdminCategories = ({ api }) => {
+  const [cats, setCats] = useState([])
+  const [adding, setAdding] = useState(false)
+  const [newCat, setNewCat] = useState({ name: '', slug: '' })
+  const [loading, setLoading] = useState(true)
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!api) return
+    apiGetCategories(api).then(setCats).catch(() => {}).finally(() => setLoading(false))
+  }, [api])
+
+  const createCategory = async () => {
+    if (!newCat.name) return
+    setNotice(''); setError('')
+    try {
+      const slug = newCat.slug || newCat.name.toLowerCase().replace(/\s+/g, '-')
+      await apiAdminCreateCategory(api, { name: newCat.name, slug })
+      const updated = await apiGetCategories(api)
+      setCats(updated)
+      setNewCat({ name: '', slug: '' })
+      setAdding(false)
+      setNotice(`Category "${newCat.name}" created.`)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Could not create category.')
+    }
+  }
+
+  return (
+    <div style={st.wrap}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <h1 style={{ ...st.h1, marginBottom: 0 }}>Category management</h1>
+        <button onClick={() => setAdding(!adding)} style={st.btnG}>+ Add category</button>
+      </div>
+      <Banner msg={notice} type="success" />
+      <Banner msg={error} type="error" />
+      {adding && (
+        <div style={{ ...st.card, marginBottom: 20, border: `1.5px solid ${G}` }}>
+          <h3 style={st.h3}>New category</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div><label style={st.label}>Name</label><input style={st.input} placeholder="e.g. Roofing" value={newCat.name} onChange={e => setNewCat({ ...newCat, name: e.target.value })} /></div>
+            <div><label style={st.label}>Slug (auto-generated if empty)</label><input style={st.input} placeholder="roofing" value={newCat.slug} onChange={e => setNewCat({ ...newCat, slug: e.target.value })} /></div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={createCategory} style={st.btnG}>Create category</button>
+            <button onClick={() => setAdding(false)} style={st.btnO}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {loading ? <Spinner /> : (
+        <div style={{ ...st.card, padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+            <thead><tr style={{ background: '#f9f9f9' }}>{['Icon', 'Name', 'Slug', 'Providers', 'Status'].map(h => <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#666', borderBottom: '1px solid #eee' }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {cats.map((c, i) => {
+                const meta = CATEGORY_META[c.name] || { icon: '🔍' }
+                return (
+                  <tr key={c.id} style={{ background: i % 2 ? '#fafafa' : '#fff' }}>
+                    <td style={{ padding: '10px 14px', fontSize: 20 }}>{meta.icon}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 500 }}>{c.name}</td>
+                    <td style={{ padding: '10px 14px', color: '#888', fontFamily: 'monospace' }}>{c.slug}</td>
+                    <td style={{ padding: '10px 14px' }}>{c.services_count}</td>
+                    <td style={{ padding: '10px 14px' }}><span style={st.badge()}>Active</span></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── AdminReviews (static) ──────────────────────────────────────
+const AdminReviews = () => (
+  <div style={st.wrap}>
+    <h1 style={st.h1}>Review moderation</h1>
+    <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+      <input style={{ ...st.input, maxWidth: 260 }} placeholder="Search reviews..." />
+      <select style={{ ...st.input, width: 'auto' }}><option>All reviews</option><option>Flagged only</option><option>1-2 stars</option></select>
+    </div>
+    {[
+      { provider: 'Sparkle Clean Co.', user: 'Anonymous', rating: 1, comment: 'Never showed up, total scam!!', flagged: true, date: 'Apr 15, 2026' },
+      { provider: "Mike's Plumbing", user: 'Dave K.', rating: 5, comment: 'Mike is fantastic, fixed our drain in under an hour.', flagged: false, date: 'Apr 14, 2026' },
+    ].map((r, i) => (
+      <div key={i} style={{ ...st.card, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+          <div>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>{r.provider}</span>
+            <span style={{ color: '#aaa', fontSize: 13 }}> · {r.user} · {r.date}</span>
+            {r.flagged && <span style={{ ...st.badge('#fdecea', '#c0392b'), marginLeft: 8 }}>🚩 Flagged</span>}
+          </div>
+          <Stars n={r.rating} />
+        </div>
+        <p style={{ fontSize: 14, color: '#555', marginBottom: 12 }}>{r.comment}</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button style={{ ...st.btnO, fontSize: 12, padding: '6px 12px' }}>Keep review</button>
+          <button style={{ ...st.btnO, fontSize: 12, padding: '6px 12px', color: '#c0392b', borderColor: '#f5c6c6' }}>Delete review</button>
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+// ── AdminSettings (static) ────────────────────────────────────
+const AdminSettings = () => (
+  <div style={{ ...st.wrap, maxWidth: 700 }}>
+    <h1 style={st.h1}>Site settings</h1>
+    {[
+      { section: 'Stripe configuration', fields: [['Stripe secret key', 'sk_live_••••••••••••••••', 'password'], ['Stripe publishable key', 'pk_live_••••••••••••••••', 'text'], ['Webhook secret', 'whsec_••••••••••••••', 'password'], ['$5/mo Price ID', 'price_••••••••••••••', 'text']] },
+      { section: 'Email (SendGrid)', fields: [['SendGrid API key', 'SG.••••••••••••••', 'password'], ['From address', 'noreply@stepserve.com', 'email'], ['Admin alert email', 'admin@stepserve.com', 'email']] },
+    ].map(({ section, fields }) => (
+      <div key={section} style={{ ...st.card, marginBottom: 20 }}>
+        <h3 style={st.h3}>{section}</h3>
+        {fields.map(([label, placeholder, type]) => (
+          <div key={label} style={{ marginBottom: 12 }}>
+            <label style={st.label}>{label}</label>
+            <input style={st.input} type={type} placeholder={placeholder} />
+          </div>
+        ))}
+        <button style={{ ...st.btnG, marginTop: 4 }}>Save {section.split(' ')[0]} settings</button>
+      </div>
+    ))}
+  </div>
+)
+
+// ── ROOT APP ─────────────────────────────────────────────────
+export default function App() {
+  const [route, setRoute] = useState('/')
+  const go = (r) => { setRoute(r); window.scrollTo?.(0, 0) }
+
+  // ── Auth state ──────────────────────────────────────────────
+  const [token, setToken] = useState(() => getStoredToken())
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // ── Data state ──────────────────────────────────────────────
+  const [categories, setCategories] = useState(MOCK_CATS)
+  const [providers, setProviders] = useState(MOCK_PROVIDERS)
+  const [homeLoading, setHomeLoading] = useState(false)
+
+  // ── API client (recreated when token changes) ───────────────
+  const api = useMemo(() => createApiClient(token), [token])
+
+  // ── On mount: load home + restore session ───────────────────
+  useEffect(() => {
+    setHomeLoading(true)
+    // Load categories and home data
+    Promise.all([
+      apiGetCategories(api),
+      apiGetHome(api),
+    ]).then(([cats, home]) => {
+      if (cats.length > 0) setCategories(cats)
+      const mapped = [...(home.featured || []), ...(home.latest || [])]
+        .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i) // dedupe
+        .map(s => serviceToProvider(s, cats.length > 0 ? cats : MOCK_CATS))
+      if (mapped.length > 0) setProviders(mapped)
+    }).catch(() => {
+      // Backend not available — keep mock data silently
+    }).finally(() => setHomeLoading(false))
+  }, [])
+
+  // ── Restore user session from stored token ──────────────────
+  useEffect(() => {
+    if (!token) { setCurrentUser(null); return }
+    apiGetMe(api).then(setCurrentUser).catch(() => {
+      clearToken(); setToken(''); setCurrentUser(null)
+    })
+  }, [token])
+
+  // ── Auth callbacks ──────────────────────────────────────────
+  const onLogin = (newToken) => {
+    storeToken(newToken)
+    setToken(newToken)
+  }
+  const onLogout = () => {
+    clearToken(); setToken(''); setCurrentUser(null); go('/')
+  }
+
+  const isAdmin = route.startsWith('/admin')
+
+  const renderPage = () => {
+    const common = { go, categories, providers, api, currentUser }
+
+    if (route === '/') return <Home go={go} categories={categories} providers={providers} loading={homeLoading} />
+    if (route === '/search') return <Search go={go} categories={categories} api={api} />
+    if (route.startsWith('/providers/')) return <ProviderProfile go={go} id={route.split('/')[2]} providers={providers} />
+    if (route === '/categories') return <Categories go={go} categories={categories} />
+    if (route.startsWith('/review/')) return <Review go={go} id={route.split('/')[2]} providers={providers} />
+    if (route === '/about') return <About go={go} />
+    if (route === '/contact') return <Contact />
+    if (route === '/terms') return <Terms />
+    if (route === '/privacy') return <Privacy />
+    if (route === '/register') return <Register go={go} api={api} onLogin={onLogin} />
+    if (route === '/login') return <Login go={go} api={api} onLogin={onLogin} />
+    if (route === '/dashboard') return <Dashboard go={go} api={api} currentUser={currentUser} />
+    if (route === '/dashboard/documents') return <DashDocuments api={api} />
+    if (route === '/dashboard/billing') return <DashBilling />
+    if (route === '/admin') return <Admin go={go} api={api} />
+    if (route === '/admin/providers') return <AdminProviders go={go} api={api} />
+    if (route === '/admin/documents') return <AdminDocuments />
+    if (route === '/admin/categories') return <AdminCategories api={api} />
+    if (route === '/admin/reviews') return <AdminReviews />
+    if (route === '/admin/settings') return <AdminSettings />
+    return (
+      <div style={{ ...st.wrap, textAlign: 'center', paddingTop: 80 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+        <h1 style={st.h1}>404 — Page not found</h1>
+        <p style={{ color: '#888', marginBottom: 24 }}>The page you're looking for doesn't exist.</p>
+        <button onClick={() => go('/')} style={st.btnG}>Go home</button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#fff', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', color: '#1a1a1a', lineHeight: 1.5 }}>
+      <Nav route={route} go={go} currentUser={currentUser} onLogout={onLogout} />
+      <div style={{ minHeight: '60vh' }}>{renderPage()}</div>
+      {!isAdmin && <Footer go={go} />}
+    </div>
+  )
 }
