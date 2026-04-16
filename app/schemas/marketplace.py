@@ -24,6 +24,13 @@ class ServiceCreate(BaseModel):
     price: float = Field(gt=0)
 
 
+class ServiceUpdate(BaseModel):
+    category_id: int | None = None
+    title: str | None = None
+    description: str | None = None
+    price: float | None = Field(default=None, gt=0)
+
+
 class BookingCreate(BaseModel):
     service_id: int
     start_time: datetime
@@ -51,3 +58,12 @@ class PaymentResponse(BaseModel):
     status: PaymentStatus
     amount: float
     stripe_payment_intent_id: str | None
+
+
+class ListingPaymentResponse(BaseModel):
+    id: int
+    service_id: int
+    amount: float
+    currency: str
+    status: str
+    paid_at: datetime | None = None

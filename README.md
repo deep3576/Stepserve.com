@@ -1,109 +1,577 @@
-# Stepserve.com backend (PythonAnywhere + MySQL 8.0)
+# StepServe — Local Service Marketplace
 
-This repo contains a direct-deploy backend for **PythonAnywhere servers** using **FastAPI + MySQL 8.0** (no Docker required).
-
-## What is implemented
-
-- JWT auth with roles: `customer`, `provider`, `admin`
-- Provider profile management
-- Category management (admin)
-- Service creation + listing
-- Booking creation (duration-based pricing)
-- Payment recording flow (CAD default, Stripe-ready placeholder)
-- Review creation after completed bookings
+StepServe connects homeowners with verified service providers in Canada.  
+Direct-deploy FastAPI + MySQL backend, React 18 + Vite frontend.
 
 ## Stack
 
-- Python 3.11+
-- FastAPI
-- PyMySQL direct SQL queries (no ORM)
-- MySQL 8.0 (`pymysql` driver)
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI (Python 3.12) + PyMySQL (no ORM) |
+| Database | MySQL 8 |
+| Auth | JWT HS256, 24hr expiry, stored in `localStorage` |
+| Frontend | React 18 + Vite 5 (SPA, inline styles) |
+| Config | `config.ini` + `pydantic-settings` |
+| Deploy | PythonAnywhere (wsgi via `a2wsgi`) |
 
-## Direct setup (local or PythonAnywhere)
+---
 
-1. Create and activate a virtualenv:
-
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-```
-
-2. Install dependencies:
+## Running locally
 
 ```bash
+# 1. Install Python dependencies
 pip install -r requirements.txt
+
+# 2. Configure database
+# Edit config.ini → [mysql] section with your host/user/password/database
+
+# 3. Create tables + seed categories
+PYTHONPATH=. python scripts/init_db.py
+
+# 4. Start backend (port 8000)
+uvicorn app.main:app --reload --port 8000
+
+# 5. Start frontend (port 5174)
+cd ui && npm install && npm run dev -- --port 5174
 ```
 
-3. Configure `config.ini` (primary configuration source).
+Frontend talks to `VITE_API_BASE_URL` (default `http://127.0.0.1:8000/api/v1`).
 
-   - Update `[flask]` and `[mysql]` values for your environment.
-   - Optional `[api]` section controls frontend API default (`base_url`).
+---
 
-4. (Optional) Create `.env` for overrides:
+## Business model
 
-```bash
-cp .env.example .env
+- **Account signup** — free for providers and customers
+- **Listing fee** — $5 CAD per listing to publish (one-time, non-recurring)
+- Listings start as inactive drafts; paying the fee activates them in search
+
+---
+
+## Base URL
+
+```
+http://127.0.0.1:8000/api/v1
 ```
 
-5. Initialize DB tables:
+---
 
-```bash
-python scripts/init_db.py
+## Authentication
+
+All protected endpoints require a Bearer token:
+
+```
+Authorization: Bearer <access_token>
 ```
 
-6. Run locally for development:
+Tokens are obtained from `POST /auth/register` or `POST /auth/login`.
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+### Roles
+
+| Role | Access |
+|---|---|
+| `customer` | Browse, book, review |
+| `provider` | Create/manage listings, upload documents, view dashboard |
+| `admin` | Full platform access |
+
+---
+
+## API Reference
+
+### Health
+
+#### `GET /health`
+
+```json
+{ "status": "ok" }
 ```
 
-## UI (React, modern design)
+---
 
-A separate React frontend is provided in `ui/`.
+### Auth
 
-```bash
-cd ui
-npm install
-npm run dev
+#### `POST /auth/register`
+Create a new account. Admin self-registration is blocked.
+
+**Body**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "role": "provider"
+}
 ```
 
-The UI is built with Vite + React and now follows a Karrot-style Stepserve classifieds experience: local-first feed, neighborhood search, category chips, featured/latest cards, account-based posting for handymen/providers, and an admin-only panel on admin login. The default API base URL is loaded from `config.ini` (`[api].base_url`) and can be overridden with `VITE_API_BASE_URL`.
+**Response 200**
+```json
+{ "access_token": "eyJ...", "token_type": "bearer" }
+```
 
-## PythonAnywhere deployment
+**Errors** · `409` email exists · `403` admin role blocked
 
-1. Upload/clone this project to your PythonAnywhere home.
-2. Create virtualenv and install requirements (`pip install -r requirements.txt`).
-3. Configure environment variables in your WSGI file or via `os.environ`.
-4. In PythonAnywhere Web tab, point WSGI config to `passenger_wsgi.py` in this repo.
-5. Reload the web app.
+---
 
-`passenger_wsgi.py` wraps FastAPI (ASGI) into WSGI using `a2wsgi`, which works with standard PythonAnywhere web app configuration.
+#### `POST /auth/login`
 
-## API
+**Body**
+```json
+{ "email": "user@example.com", "password": "password123" }
+```
 
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/auth/me` (authenticated user profile + role)
-- `GET /api/v1/categories` (public category listing with counts)
-- `POST /api/v1/categories` (admin)
-- `POST /api/v1/providers/profile` (provider)
-- `POST /api/v1/services` (provider)
-- `GET /api/v1/services`
-- `POST /api/v1/bookings` (customer)
-- `POST /api/v1/payments` (customer)
-- `POST /api/v1/reviews` (customer, completed booking)
-- `GET /api/v1/stepserve/home` (public Stepserve home feed: categories, featured, latest, top locations)
-- `GET /api/v1/market/home` (legacy alias of Stepserve home feed)
-- `GET /api/v1/search/services` (public search options)
-- `GET /api/v1/customer/bookings` (customer view)
-- `GET/POST /api/v1/providers/uploads` (handyman upload panel)
-- `GET /api/v1/provider/dashboard` (handyman dashboard)
-- `GET /api/v1/admin/overview` (admin panel)
-- `GET /api/v1/admin/users` (admin panel)
-- `PATCH /api/v1/admin/users/{user_id}/status` (admin moderation)
-- `GET /api/v1/admin/bookings` (admin panel)
+**Response 200**
+```json
+{ "access_token": "eyJ...", "token_type": "bearer" }
+```
 
-## Notes
+**Errors** · `401` invalid credentials
 
-- The project intentionally uses **direct SQL** and avoids ORM usage.
-- Current payment endpoint uses a demo payment intent id (`pi_demo_*`); replace with Stripe PaymentIntent + webhook verification in production.
+---
+
+#### `GET /auth/me`
+*Auth: any role*
+
+**Response 200**
+```json
+{ "id": 1, "email": "user@example.com", "role": "provider", "is_active": 1 }
+```
+
+---
+
+### Provider Profile
+
+Must be created before posting listings or uploading documents.
+
+#### `POST /providers/profile`
+*Auth: provider* — create or update profile
+
+**Body**
+```json
+{
+  "full_name": "John Smith",
+  "bio": "Licensed plumber with 10 years experience.",
+  "location": "Cambridge, ON",
+  "hourly_rate": 75.00
+}
+```
+
+**Response 200**
+```json
+{ "id": 1, "user_id": 1, "full_name": "John Smith", "location": "Cambridge, ON", "hourly_rate": 75.0 }
+```
+
+---
+
+### Listings (Services)
+
+Listings are service offerings. Each costs **$5 CAD** to publish.  
+New listings start as `is_active=0` drafts until the fee is paid.
+
+#### `POST /services`
+*Auth: provider* — create a listing draft
+
+**Body**
+```json
+{
+  "category_id": 2,
+  "title": "Deep House Cleaning",
+  "description": "Full residential deep clean.",
+  "price": 80.00
+}
+```
+
+**Response 200**
+```json
+{
+  "id": 4,
+  "provider_id": 1,
+  "category_id": 2,
+  "title": "Deep House Cleaning",
+  "price": 80.0,
+  "is_active": false,
+  "payment_status": "pending",
+  "listing_fee": 5.0
+}
+```
+
+**Errors** · `400` provider profile not set up
+
+---
+
+#### `POST /listings/{service_id}/pay`
+*Auth: provider* — pay the $5 listing fee to publish the draft  
+*(Demo mode — no real Stripe charge)*
+
+**Response 200**
+```json
+{
+  "id": 1,
+  "service_id": 4,
+  "amount": 5.0,
+  "currency": "CAD",
+  "status": "paid",
+  "paid_at": "2026-04-16T20:00:00"
+}
+```
+
+**Errors** · `400` already paid · `404` listing not found or not yours
+
+---
+
+#### `GET /provider/listings`
+*Auth: provider* — all listings with payment status
+
+**Response 200**
+```json
+[
+  {
+    "id": 4,
+    "title": "Deep House Cleaning",
+    "description": "...",
+    "price": 80.0,
+    "is_active": 1,
+    "created_at": "2026-04-16T19:00:00",
+    "category_name": "Cleaning",
+    "payment_status": "paid",
+    "listing_fee": 5.0,
+    "paid_at": "2026-04-16T19:05:00"
+  }
+]
+```
+
+---
+
+#### `PATCH /services/{service_id}`
+*Auth: provider* — update a listing (all fields optional)
+
+**Body**
+```json
+{
+  "title": "Updated title",
+  "description": "New description",
+  "price": 95.00,
+  "category_id": 3
+}
+```
+
+**Response 200** — updated service row
+
+**Errors** · `400` no fields provided · `404` not found or not yours
+
+---
+
+#### `DELETE /services/{service_id}`
+*Auth: provider* — deactivate a listing (`is_active=0`, not deleted)
+
+**Response 200**
+```json
+{ "id": 4, "is_active": false }
+```
+
+**Errors** · `404` not found or not yours
+
+---
+
+#### `GET /services`
+*Public* — list all active services
+
+**Query params**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `active_only` | bool | `true` | Include inactive listings |
+
+---
+
+### Search
+
+#### `GET /search/services`
+*Public* — search and filter active listings
+
+**Query params**
+
+| Param | Type | Description |
+|---|---|---|
+| `query` | string | Full-text search in title and description |
+| `category_id` | int | Filter by category ID |
+| `location` | string | Provider location partial match |
+| `min_price` | float | Minimum price |
+| `max_price` | float | Maximum price |
+
+**Example**
+```
+GET /api/v1/search/services?query=cleaning&location=Cambridge&min_price=50
+```
+
+**Response 200**
+```json
+[
+  {
+    "id": 4,
+    "title": "Deep House Cleaning",
+    "price": 80.0,
+    "category_id": 2,
+    "provider_name": "John Smith",
+    "location": "Cambridge, ON"
+  }
+]
+```
+
+---
+
+### Home / Marketplace
+
+#### `GET /stepserve/home`
+*Public* — all data for the home page in one call
+
+**Response 200**
+```json
+{
+  "categories": [{ "id": 2, "name": "Cleaning", "slug": "cleaning", "services_count": 3 }],
+  "featured": [...],
+  "latest": [...],
+  "top_locations": [{ "location": "Cambridge, ON", "listings_count": 5 }]
+}
+```
+
+> `top_locations` drives the city dropdown on the home page.  
+> It is empty until providers have profiles with `location` set and at least one paid listing.
+
+---
+
+### Categories
+
+#### `GET /categories`
+*Public* — all categories with active service counts
+
+**Response 200**
+```json
+[
+  { "id": 2, "name": "Cleaning", "slug": "cleaning", "services_count": 3 }
+]
+```
+
+---
+
+#### `POST /categories`
+*Auth: admin* — create a category
+
+**Body**
+```json
+{ "name": "Roofing", "slug": "roofing" }
+```
+
+**Response 200**
+```json
+{ "id": 13, "name": "Roofing", "slug": "roofing" }
+```
+
+---
+
+### Provider Dashboard
+
+#### `GET /provider/dashboard`
+*Auth: provider* — summary of services, bookings and uploads
+
+**Response 200**
+```json
+{
+  "services": [...],
+  "bookings": [...],
+  "uploads": [...]
+}
+```
+
+---
+
+### Documents
+
+#### `POST /providers/uploads`
+*Auth: provider* · `multipart/form-data`  
+Upload a certification or insurance document. Requires provider profile.
+
+**Form field**: `file` (PDF, JPG, PNG)
+
+**Response 200**
+```json
+{ "id": 1, "file_name": "insurance_coi.pdf", "stored_path": "uploads/provider_1_insurance_coi.pdf" }
+```
+
+**Errors** · `400` provider profile not set up
+
+---
+
+#### `GET /providers/uploads`
+*Auth: provider* — list uploaded documents
+
+**Response 200**
+```json
+[
+  {
+    "id": 1,
+    "file_name": "insurance_coi.pdf",
+    "content_type": "application/pdf",
+    "file_size": 204800,
+    "created_at": "2026-04-16T19:00:00"
+  }
+]
+```
+
+---
+
+### Bookings
+
+#### `POST /bookings`
+*Auth: customer* — book a service
+
+**Body**
+```json
+{
+  "service_id": 4,
+  "start_time": "2026-05-01T09:00:00",
+  "end_time": "2026-05-01T11:00:00"
+}
+```
+
+**Response 200**
+```json
+{ "id": 1, "status": "pending", "total_price": 160.00 }
+```
+
+**Errors** · `400` invalid time window · `404` service not found/inactive
+
+---
+
+#### `GET /customer/bookings`
+*Auth: customer* — list all bookings including `service_title`
+
+---
+
+### Payments (Booking)
+
+#### `POST /payments`
+*Auth: customer* — pay for a booking *(Demo mode)*
+
+**Body**
+```json
+{ "booking_id": 1 }
+```
+
+**Response 200**
+```json
+{
+  "id": 1,
+  "status": "paid",
+  "amount": 160.00,
+  "stripe_payment_intent_id": "pi_demo_1"
+}
+```
+
+---
+
+### Reviews
+
+#### `POST /reviews`
+*Auth: customer* — review a **completed** booking
+
+**Body**
+```json
+{ "booking_id": 1, "rating": 5, "comment": "Excellent service!" }
+```
+
+**Response 200**
+```json
+{ "id": 1, "booking_id": 1, "rating": 5, "comment": "Excellent service!" }
+```
+
+**Errors** · `400` booking not completed or not yours
+
+---
+
+### Admin
+
+All admin endpoints require `admin` role.
+
+#### `GET /admin/overview`
+
+**Response 200**
+```json
+{
+  "users_count": 42,
+  "services_count": 18,
+  "bookings_count": 7,
+  "paid_total": 35.00
+}
+```
+
+---
+
+#### `GET /admin/users`
+List all users (max 500) — `{ id, email, role, is_active, created_at }`
+
+---
+
+#### `PATCH /admin/users/{user_id}/status`
+Activate or deactivate a user.
+
+**Query param**: `active` (bool)  
+**Example**: `PATCH /admin/users/5/status?active=false`
+
+**Response 200**
+```json
+{ "user_id": 5, "is_active": false }
+```
+
+---
+
+#### `GET /admin/bookings`
+List all bookings across the platform (max 500), including `customer_email`.
+
+---
+
+## Database schema
+
+```
+users                   accounts (customer / provider / admin)
+provider_profiles       bio, location, hourly rate
+categories              12 pre-seeded service categories
+services                listings (is_active=0 until listing fee paid)
+listing_payments        $5 per-listing fee record (pending → paid)
+bookings                customer service bookings
+payments                booking payments (Stripe demo)
+reviews                 post-booking customer reviews
+provider_uploads        certification & insurance documents
+```
+
+### listing_payments
+
+| Column | Type | Notes |
+|---|---|---|
+| id | INT PK | |
+| service_id | INT | FK → services.id (unique) |
+| provider_id | INT | FK → provider_profiles.id |
+| amount | DECIMAL(10,2) | 5.00 |
+| currency | CHAR(3) | CAD |
+| status | ENUM | `pending` or `paid` |
+| stripe_payment_intent_id | VARCHAR | populated on payment |
+| paid_at | TIMESTAMP | populated on payment |
+
+---
+
+## Troubleshooting
+
+**`500` on register/login**  
+→ `bcrypt` version issue. Requires `bcrypt>=4.0.0`. Run `pip install -r requirements.txt`.
+
+**`400 Provider profile required`**  
+→ Call `POST /providers/profile` before creating listings or uploading files.
+
+**Listings not showing in search**  
+→ Listing must be paid (`POST /listings/{id}/pay`) to become `is_active=1`. Only active listings appear in search and on the home page.
+
+**`401 Invalid token`**  
+→ Token expired (24hr TTL). Call `POST /auth/login` to get a new one.
+
+**City dropdown empty on home page**  
+→ Cities come from `top_locations` in `GET /stepserve/home`. Populated only when providers have a `location` in their profile AND have at least one paid listing.
+
+**Categories missing**  
+→ Run `PYTHONPATH=. python scripts/init_db.py` to seed the 12 default categories.

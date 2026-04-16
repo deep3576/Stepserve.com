@@ -11,11 +11,13 @@ from app.schemas.marketplace import (
     BookingCreate,
     BookingResponse,
     CategoryCreate,
+    ListingPaymentResponse,
     PaymentCreate,
     PaymentResponse,
     ProviderProfileUpsert,
     ReviewCreate,
     ServiceCreate,
+    ServiceUpdate,
 )
 
 router = APIRouter(tags=["stepserve"])
@@ -250,18 +252,159 @@ def create_service(
         cur.execute("SELECT id FROM provider_profiles WHERE user_id = %s LIMIT 1", (user["id"],))
         profile = cur.fetchone()
         if not profile:
-            raise HTTPException(status_code=400, detail="Provider profile required")
+            raise HTTPException(status_code=400, detail="Provider profile required before creating a listing")
 
+        # Listing starts inactive until $5 payment is made
         cur.execute(
             """
             INSERT INTO services (provider_id, category_id, title, description, price, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, 0)
             """,
-            (profile["id"], payload.category_id, payload.title, payload.description, payload.price, 1),
+            (profile["id"], payload.category_id, payload.title, payload.description, payload.price),
         )
         service_id = cur.lastrowid
+
+        # Create pending listing payment record ($5 CAD)
+        cur.execute(
+            """
+            INSERT INTO listing_payments (service_id, provider_id, amount, currency, status)
+            VALUES (%s, %s, 5.00, 'CAD', 'pending')
+            """,
+            (service_id, profile["id"]),
+        )
     conn.commit()
-    return {"id": service_id, "provider_id": profile["id"], **payload.model_dump(), "is_active": True}
+    return {
+        "id": service_id,
+        "provider_id": profile["id"],
+        **payload.model_dump(),
+        "is_active": False,
+        "payment_status": "pending",
+        "listing_fee": 5.00,
+    }
+
+
+@router.post("/listings/{service_id}/pay", response_model=ListingPaymentResponse)
+def pay_listing(
+    service_id: int,
+    conn: pymysql.connections.Connection = Depends(get_connection),
+    user: dict[str, Any] = Depends(require_role(UserRole.provider)),
+):
+    """Pay the $5 listing fee to activate a service. (Demo: no real Stripe charge.)"""
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM provider_profiles WHERE user_id = %s LIMIT 1", (user["id"],))
+        profile = cur.fetchone()
+        if not profile:
+            raise HTTPException(status_code=400, detail="Provider profile not found")
+
+        cur.execute(
+            "SELECT id, status FROM listing_payments WHERE service_id=%s AND provider_id=%s LIMIT 1",
+            (service_id, profile["id"]),
+        )
+        lp = cur.fetchone()
+        if not lp:
+            raise HTTPException(status_code=404, detail="Listing payment record not found")
+        if lp["status"] == "paid":
+            raise HTTPException(status_code=400, detail="Listing already paid")
+
+        fake_pi = f"pi_listing_{service_id}_{user['id']}"
+        cur.execute(
+            "UPDATE listing_payments SET status='paid', stripe_payment_intent_id=%s, paid_at=NOW() WHERE id=%s",
+            (fake_pi, lp["id"]),
+        )
+        cur.execute("UPDATE services SET is_active=1 WHERE id=%s", (service_id,))
+
+        cur.execute("SELECT * FROM listing_payments WHERE id=%s", (lp["id"],))
+        updated = cur.fetchone()
+    conn.commit()
+    return ListingPaymentResponse(**updated)
+
+
+@router.patch("/services/{service_id}")
+def update_service(
+    service_id: int,
+    payload: ServiceUpdate,
+    conn: pymysql.connections.Connection = Depends(get_connection),
+    user: dict[str, Any] = Depends(require_role(UserRole.provider)),
+):
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM provider_profiles WHERE user_id = %s LIMIT 1", (user["id"],))
+        profile = cur.fetchone()
+        if not profile:
+            raise HTTPException(status_code=400, detail="Provider profile not found")
+
+        cur.execute(
+            "SELECT id FROM services WHERE id=%s AND provider_id=%s LIMIT 1",
+            (service_id, profile["id"]),
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Listing not found or not yours")
+
+        updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+        if not updates:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        set_clause = ", ".join(f"{k}=%s" for k in updates)
+        cur.execute(
+            f"UPDATE services SET {set_clause} WHERE id=%s",
+            (*updates.values(), service_id),
+        )
+    conn.commit()
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM services WHERE id=%s", (service_id,))
+        return cur.fetchone()
+
+
+@router.delete("/services/{service_id}")
+def deactivate_service(
+    service_id: int,
+    conn: pymysql.connections.Connection = Depends(get_connection),
+    user: dict[str, Any] = Depends(require_role(UserRole.provider)),
+):
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM provider_profiles WHERE user_id = %s LIMIT 1", (user["id"],))
+        profile = cur.fetchone()
+        if not profile:
+            raise HTTPException(status_code=400, detail="Provider profile not found")
+
+        cur.execute(
+            "SELECT id FROM services WHERE id=%s AND provider_id=%s LIMIT 1",
+            (service_id, profile["id"]),
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Listing not found or not yours")
+
+        cur.execute("UPDATE services SET is_active=0 WHERE id=%s", (service_id,))
+    conn.commit()
+    return {"id": service_id, "is_active": False}
+
+
+@router.get("/provider/listings")
+def provider_listings(
+    conn: pymysql.connections.Connection = Depends(get_connection),
+    user: dict[str, Any] = Depends(require_role(UserRole.provider)),
+):
+    """Return all listings for the logged-in provider, with payment status."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM provider_profiles WHERE user_id=%s LIMIT 1", (user["id"],))
+        profile = cur.fetchone()
+        if not profile:
+            return []
+        cur.execute(
+            """
+            SELECT s.id, s.title, s.description, s.price, s.is_active, s.created_at,
+                   c.name AS category_name,
+                   COALESCE(lp.status, 'pending') AS payment_status,
+                   lp.amount AS listing_fee,
+                   lp.paid_at
+            FROM services s
+            LEFT JOIN categories c ON c.id = s.category_id
+            LEFT JOIN listing_payments lp ON lp.service_id = s.id
+            WHERE s.provider_id = %s
+            ORDER BY s.id DESC
+            """,
+            (profile["id"],),
+        )
+        return cur.fetchall()
 
 
 @router.get("/services")
