@@ -24,3 +24,6 @@ recipient = admin@stepserve.com
 
 [api]
 base_url = http://127.0.0.1:8000/api/v1
+
+# Comma-separated list of allowed CORS origins (set your production domain here)
+# cors_origins = https://stepserve.ca,https://www.stepserve.ca

@@ -19,5 +19,8 @@ def get_connection() -> Generator[pymysql.connections.Connection, None, None]:
     )
     try:
         yield conn
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()

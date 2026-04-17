@@ -1,37 +1,82 @@
+import logging
+import logging.config
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import pymysql
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.routes import auth, marketplace
 from app.core.config import settings
+from app.core.limiter import limiter
+from app.db.session import get_connection
+
+# ── Logging ────────────────────────────────────────────────────────────────────
+logging.config.dictConfig({
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {"format": "%(asctime)s %(levelname)s %(name)s — %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "default"},
+    },
+    "root": {"level": "INFO", "handlers": ["console"]},
+    "loggers": {
+        "stepserve": {"level": "DEBUG" if settings.debug else "INFO", "propagate": True},
+        "uvicorn.error": {"level": "INFO"},
+        "uvicorn.access": {"level": "WARNING"},
+    },
+})
+
+logger = logging.getLogger("stepserve")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    logger.info("StepServe starting — env=%s debug=%s", settings.app_env, settings.debug)
     yield
+    logger.info("StepServe shutting down")
 
 
-app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name,
+    debug=settings.debug,
+    lifespan=lifespan,
+    docs_url="/docs" if settings.debug else None,
+    redoc_url=None,
+)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled error: %s %s — %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(conn: pymysql.connections.Connection = Depends(get_connection)) -> dict[str, str]:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1")
+    return {"status": "ok", "db": "ok"}
 
 
 app.include_router(auth.router, prefix="/api/v1")

@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     stripe_secret_key: str = "sk_test_change_me"
     stripe_webhook_secret: str = "whsec_change_me"
 
+    # Comma-separated list of allowed CORS origins. Override via CORS_ORIGINS env var or config.ini.
+    cors_origins: str = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
     database_url_override: str | None = None
     api_base_url: str = INI_DEFAULTS.get("api_base_url", "http://127.0.0.1:8000/api/v1")
 
