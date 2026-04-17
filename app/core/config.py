@@ -71,7 +71,12 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = "whsec_change_me"
 
     # Comma-separated list of allowed CORS origins. Override via CORS_ORIGINS env var or config.ini.
-    cors_origins: str = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
+    cors_origins: str = (
+        "http://localhost:5170,http://localhost:5171,http://localhost:5172,"
+        "http://localhost:5173,http://localhost:5174,http://localhost:5175,"
+        "http://127.0.0.1:5170,http://127.0.0.1:5171,http://127.0.0.1:5172,"
+        "http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175"
+    )
 
     @property
     def cors_origins_list(self) -> list[str]:
