@@ -130,6 +130,8 @@ def search_services(
     location: str | None = Query(default=None),
     min_price: float | None = Query(default=None),
     max_price: float | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ):
     conditions = ["s.is_active = 1"]
     params: list[Any] = []
@@ -156,10 +158,10 @@ def search_services(
         JOIN provider_profiles p ON s.provider_id = p.id
         WHERE {' AND '.join(conditions)}
         ORDER BY s.id DESC
-        LIMIT 100
+        LIMIT %s OFFSET %s
     """
     with conn.cursor() as cur:
-        cur.execute(sql, tuple(params))
+        cur.execute(sql, (*params, limit, offset))
         return cur.fetchall()
 
 
@@ -207,9 +209,20 @@ def upload_provider_asset(
         if not profile:
             raise HTTPException(status_code=400, detail="Provider profile required")
 
-    safe_name = f"provider_{user['id']}_{file.filename}"
+    ALLOWED_CONTENT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
+    MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Only PDF, JPG, and PNG files are allowed.")
+
+    content = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File too large — maximum size is 10 MB.")
+
+    # Strip any path components from the filename to prevent traversal
+    safe_filename = Path(file.filename or "upload").name
+    safe_name = f"provider_{user['id']}_{safe_filename}"
     filepath = UPLOAD_DIR / safe_name
-    content = file.file.read()
     filepath.write_bytes(content)
 
     with conn.cursor() as cur:
@@ -218,11 +231,11 @@ def upload_provider_asset(
             INSERT INTO provider_uploads (provider_id, file_name, file_path, content_type, file_size)
             VALUES (%s, %s, %s, %s, %s)
             """,
-            (profile["id"], file.filename, str(filepath), file.content_type, len(content)),
+            (profile["id"], safe_filename, str(filepath), file.content_type, len(content)),
         )
         upload_id = cur.lastrowid
     conn.commit()
-    return {"id": upload_id, "file_name": file.filename, "stored_path": str(filepath)}
+    return {"id": upload_id, "file_name": safe_filename, "stored_path": str(filepath)}
 
 
 @router.get("/providers/uploads")

@@ -1,9 +1,10 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 import pymysql
 
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_connection
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
@@ -12,7 +13,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=TokenResponse)
+@limiter.limit("20/hour")
 def register(
+    request: Request,
     payload: RegisterRequest,
     conn: pymysql.connections.Connection = Depends(get_connection),
 ) -> TokenResponse:
@@ -37,7 +40,9 @@ def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 def login(
+    request: Request,
     payload: LoginRequest,
     conn: pymysql.connections.Connection = Depends(get_connection),
 ) -> TokenResponse:
