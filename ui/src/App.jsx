@@ -26,7 +26,6 @@ const st = {
   h3: { fontSize: 16, fontWeight: 600, marginBottom: 8, color: '#1a1a1a' },
   muted: { color: '#888', fontSize: 14 },
   badge: (color = '#e1f5ee', text = G) => ({ background: color, color: text, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, display: 'inline-block' }),
-  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -157,7 +156,7 @@ const Home = ({ go, categories, providers, loading, topLocations = [] }) => {
             </div>
           ))}
         </div>
-        <div style={{ border: '1px solid #eee', borderRadius: 14, padding: '32px', display: 'grid', gridTemplateColumns: '1fr auto', gap: 32, alignItems: 'center', marginBottom: 48 }}>
+        <div className="home-cta-grid">
           <div>
             <h2 style={st.h2}>Grow your local service business</h2>
             <p style={{ color: '#666', fontSize: 14, marginBottom: 20, lineHeight: 1.7, maxWidth: 480 }}>StepServe puts your profile in front of homeowners actively searching for what you offer — all for less than a coffee a week.</p>
@@ -173,7 +172,7 @@ const Home = ({ go, categories, providers, loading, topLocations = [] }) => {
             <button onClick={() => go('/register')} style={{ ...st.btnG, width: '100%', padding: 11 }}>Get started</button>
           </div>
         </div>
-        <div style={{ background: G, borderRadius: 14, padding: '32px 36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, color: '#fff' }}>
+        <div className="app-bar" style={{ background: G, borderRadius: 14, padding: '32px 36px', color: '#fff' }}>
           <div><h3 style={{ ...st.h3, color: '#fff', fontSize: 20, marginBottom: 6 }}>It's easier in the app</h3><p style={{ fontSize: 14, opacity: 0.85 }}>Browse local pros, save favourites, and leave reviews.</p></div>
           <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
             {['⬇ App Store', '⬇ Google Play'].map(b => <div key={b} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>{b}</div>)}
@@ -222,8 +221,8 @@ const Search = ({ go, categories, api, initialCat = 'All' }) => {
   return (
     <div>
       <CatTabs active={tab} setActive={setTab} categories={categories} />
-      <div style={{ ...st.wrap, display: 'grid', gridTemplateColumns: '220px 1fr', gap: 28, alignItems: 'start' }}>
-        <div style={{ ...st.card, position: 'sticky', top: 110 }}>
+      <div className="rg-search">
+        <div className="search-sidebar" style={{ ...st.card, position: 'sticky', top: 110 }}>
           <div style={{ fontWeight: 600, marginBottom: 14 }}>Filters</div>
           <div style={{ marginBottom: 16 }}>
             <div style={st.label}>City / Postal code</div>
@@ -487,7 +486,7 @@ const Contact = () => {
         </div>
         <button onClick={handleSend} style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15 }}>Send message</button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24 }}>
+      <div className="rg-2" style={{ marginTop: 24 }}>
         {[['📧 Email', 'support@stepserve.com'], ['🕐 Response time', 'Within 1 business day']].map(([t, v]) => (
           <div key={t} style={st.card}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{t}</div>
@@ -582,13 +581,13 @@ const Register = ({ go, api, onLogin }) => {
       {step === 1 && (
         <div style={st.card}>
           <h2 style={st.h2}>Create your provider profile</h2>
-          <div style={st.grid2}>
+          <div className="rg-2">
             <div><label style={st.label}>First name</label><input style={st.input} placeholder="John" value={info.firstName} onChange={e => setInfo({ ...info, firstName: e.target.value })} /></div>
             <div><label style={st.label}>Last name</label><input style={st.input} placeholder="Smith" value={info.lastName} onChange={e => setInfo({ ...info, lastName: e.target.value })} /></div>
           </div>
           <div style={{ marginTop: 14 }}><label style={st.label}>Email *</label><input style={st.input} type="email" placeholder="you@example.com" value={info.email} onChange={e => setInfo({ ...info, email: e.target.value })} /></div>
           <div style={{ marginTop: 14 }}><label style={st.label}>Phone</label><input style={st.input} placeholder="+1 (519) 000-0000" value={info.phone} onChange={e => setInfo({ ...info, phone: e.target.value })} /></div>
-          <div style={{ marginTop: 14, ...st.grid2 }}>
+          <div className="rg-2" style={{ marginTop: 14 }}>
             <div><label style={st.label}>City</label><input style={st.input} placeholder="Cambridge" value={info.city} onChange={e => setInfo({ ...info, city: e.target.value })} /></div>
             <div><label style={st.label}>Province</label>
               <select style={st.input} value={info.province} onChange={e => setInfo({ ...info, province: e.target.value })}>
@@ -607,7 +606,7 @@ const Register = ({ go, api, onLogin }) => {
         <div style={st.card}>
           <h2 style={st.h2}>Select your service categories</h2>
           <p style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>Choose all categories that apply to your business.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 24 }}>
+          <div className="rg-2" style={{ gap: 8, marginBottom: 24 }}>
             {Object.entries(CATEGORY_META).map(([name, meta]) => (
               <label key={name} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 12px', border: '1.5px solid #eee', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
                 <input type="checkbox" checked={profile.categories.includes(name)} onChange={e => setProfile(p => ({ ...p, categories: e.target.checked ? [...p.categories, name] : p.categories.filter(c => c !== name) }))} />{meta.icon} {name}
@@ -783,12 +782,12 @@ const Dashboard = ({ go, api, currentUser }) => {
 
   return (
     <div style={st.wrap}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div className="dash-header">
         <div>
           <h1 style={st.h1}>My dashboard</h1>
           <p style={{ color: '#888', fontSize: 14 }}>Welcome, {currentUser?.email}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="dash-header-btns">
           <button onClick={() => go('/dashboard/documents')} style={st.btnO}>Documents</button>
           <button onClick={() => go('/dashboard/billing')} style={st.btnO}>Billing</button>
         </div>
@@ -797,7 +796,7 @@ const Dashboard = ({ go, api, currentUser }) => {
       <Banner msg={error} type="error" />
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
+      <div className="rg-4" style={{ marginBottom: 28 }}>
         {[
           ['Live listings', activeLive.length, 'published'],
           ['Total listings', listings.length, 'all time'],
@@ -824,7 +823,7 @@ const Dashboard = ({ go, api, currentUser }) => {
         {newListing && (
           <div style={{ background: GL, border: `1.5px solid #b8dfd0`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
             <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 14 }}>New listing — $5 listing fee to publish</div>
-            <div style={st.grid2}>
+            <div className="rg-2">
               <div><label style={st.label}>Title *</label><input style={st.input} placeholder="e.g. House Cleaning" value={newListing.title} onChange={e => setNewListing({ ...newListing, title: e.target.value })} /></div>
               <div><label style={st.label}>Category *</label>
                 <select style={st.input} value={newListing.category_id} onChange={e => setNewListing({ ...newListing, category_id: e.target.value })}>
@@ -859,7 +858,7 @@ const Dashboard = ({ go, api, currentUser }) => {
                 {editingId === l.id ? (
                   /* Edit form */
                   <div style={{ background: '#fafafa', borderRadius: 8, padding: 14 }}>
-                    <div style={st.grid2}>
+                    <div className="rg-2">
                       <div><label style={st.label}>Title</label><input style={st.input} value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} /></div>
                       <div><label style={st.label}>Category</label>
                         <select style={st.input} value={editForm.category_id} onChange={e => setEditForm({ ...editForm, category_id: e.target.value })}>
@@ -876,7 +875,7 @@ const Dashboard = ({ go, api, currentUser }) => {
                   </div>
                 ) : (
                   /* Listing row */
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div className="listing-row">
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{l.title}</div>
                       <div style={{ fontSize: 12, color: '#888' }}>
@@ -890,7 +889,7 @@ const Dashboard = ({ go, api, currentUser }) => {
                       </div>
                       {l.description && <div style={{ fontSize: 12, color: '#aaa', marginTop: 4, maxWidth: 500 }}>{l.description.slice(0, 100)}{l.description.length > 100 ? '…' : ''}</div>}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <div className="listing-actions">
                       {l.payment_status !== 'paid' && !l.is_active && (
                         <button onClick={() => payListing(l.id)} style={{ ...st.btnG, fontSize: 12, padding: '6px 12px', background: '#b07800', border: 'none' }}>
                           Pay $5 to publish
@@ -911,7 +910,7 @@ const Dashboard = ({ go, api, currentUser }) => {
       </div>
 
       {/* Profile + bookings */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="rg-2" style={{ gap: 20 }}>
         <div style={st.card}>
           <h3 style={st.h3}>Profile information</h3>
           <div style={{ marginBottom: 12 }}><label style={st.label}>Full name</label><input style={st.input} placeholder="Your full name" value={profileForm.full_name} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} /></div>
@@ -973,7 +972,7 @@ const DashDocuments = ({ api }) => {
       <p style={{ color: '#666', marginBottom: 24 }}>Upload certifications and liability insurance. Our team reviews within 1–2 business days.</p>
       <Banner msg={notice} type="success" />
       <Banner msg={error} type="error" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="rg-2" style={{ gap: 20 }}>
         {[{ type: 'Certification', desc: 'Trade certificate, diploma, or professional licence' }, { type: 'Liability Insurance', desc: 'Current certificate of insurance (COI)' }].map(d => (
           <div key={d.type} style={st.card}>
             <h3 style={{ ...st.h3, marginBottom: 8 }}>{d.type}</h3>
@@ -990,6 +989,7 @@ const DashDocuments = ({ api }) => {
       {uploads.length > 0 && (
         <div style={{ ...st.card, marginTop: 20 }}>
           <h3 style={st.h3}>Upload history</h3>
+          <div className="table-wrap">
           <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: '#aaa', textAlign: 'left' }}>{['File', 'Type', 'Size', 'Uploaded'].map(h => <th key={h} style={{ padding: '6px 0', borderBottom: '1px solid #eee', fontWeight: 600 }}>{h}</th>)}</tr></thead>
             <tbody>
@@ -1003,6 +1003,7 @@ const DashDocuments = ({ api }) => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -1037,6 +1038,7 @@ const DashBilling = ({ api }) => {
         {loading ? <Spinner /> : payments.length === 0 ? (
           <p style={st.muted}>No paid listings yet.</p>
         ) : (
+          <div className="table-wrap">
           <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ color: '#aaa', textAlign: 'left' }}>
@@ -1056,6 +1058,7 @@ const DashBilling = ({ api }) => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       <div style={{ ...st.card, background: GL }}>
@@ -1086,7 +1089,7 @@ const Admin = ({ go, api }) => {
   return (
     <div style={st.wrap}>
       <h1 style={st.h1}>Admin dashboard</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }}>
+      <div className="rg-4" style={{ marginBottom: 28 }}>
         {[['Total users', overview?.users_count ?? '—'], ['Services', overview?.services_count ?? '—'], ['Bookings', overview?.bookings_count ?? '—'], ['Revenue (paid)', overview ? `$${Number(overview.paid_total).toFixed(2)}` : '—']].map(([l, v]) => (
           <div key={l} style={{ background: '#f7f7f7', borderRadius: 10, padding: '16px' }}>
             <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{l}</div>
@@ -1094,7 +1097,7 @@ const Admin = ({ go, api }) => {
           </div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="rg-2" style={{ gap: 20 }}>
         <div style={st.card}>
           <h3 style={st.h3}>Recent users</h3>
           {recentUsers.length === 0 ? <p style={st.muted}>No users yet.</p> : recentUsers.map((u, i) => (
@@ -1253,7 +1256,7 @@ const AdminCategories = ({ api }) => {
       {adding && (
         <div style={{ ...st.card, marginBottom: 20, border: `1.5px solid ${G}` }}>
           <h3 style={st.h3}>New category</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div className="rg-2" style={{ gap: 12, marginBottom: 14 }}>
             <div><label style={st.label}>Name</label><input style={st.input} placeholder="e.g. Roofing" value={newCat.name} onChange={e => setNewCat({ ...newCat, name: e.target.value })} /></div>
             <div><label style={st.label}>Slug (auto-generated if empty)</label><input style={st.input} placeholder="roofing" value={newCat.slug} onChange={e => setNewCat({ ...newCat, slug: e.target.value })} /></div>
           </div>
