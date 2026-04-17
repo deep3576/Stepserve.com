@@ -1,4 +1,4 @@
-const G = '#0a7c5c'
+import logoDark from '../assets/logo-dark.svg'
 
 export default function Footer({ go }) {
   return (
@@ -7,7 +7,7 @@ export default function Footer({ go }) {
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 40, marginBottom: 40 }}>
           {/* Brand */}
           <div>
-            <div onClick={() => go('/')} style={{ fontWeight: 800, fontSize: 20, color: '#fff', cursor: 'pointer', letterSpacing: -0.5, marginBottom: 12 }}>StepServe</div>
+            <img src={logoDark} alt="StepServe" onClick={() => go('/')} style={{ height: 36, cursor: 'pointer', marginBottom: 12 }} />
             <p style={{ fontSize: 14, lineHeight: 1.7, color: '#888', maxWidth: 280, margin: '0 0 16px' }}>
               Find trusted local service professionals across Canada. Verified, insured, and reviewed.
             </p>
