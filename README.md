@@ -16,6 +16,56 @@ Direct-deploy FastAPI + MySQL backend, React 18 + Vite frontend.
 
 ---
 
+## iOS app
+
+A native iOS app (SwiftUI) is located in the `ios/` directory.
+It mirrors the Android app exactly — same screens, same API calls, same brand colours.
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Xcode | 15 or newer |
+| iOS Deployment Target | iOS 16+ |
+| macOS | Ventura 13+ |
+
+### Running on the iOS Simulator
+
+```bash
+# 1. Open the project in Xcode:
+open ios/StepServe.xcodeproj
+
+# 2. Select an iPhone simulator (e.g. iPhone 15) in the device picker
+# 3. Press Cmd+R (or the Run button)
+```
+
+The debug build points to `http://localhost:8000/api/v1/`.  
+Start the FastAPI backend first: `uvicorn app.main:app --reload --port 8000`
+
+### Running on a physical iPhone
+
+1. Connect your iPhone via USB
+2. Open `ios/StepServe.xcodeproj` in Xcode
+3. In the Signing & Capabilities tab, set your Apple Developer Team
+4. Select your device in the device picker
+5. Press Cmd+R
+
+For a physical device you need to update the API base URL in [`ios/StepServe/Data/NetworkClient.swift`](ios/StepServe/Data/NetworkClient.swift) to your machine's local IP:
+```swift
+let API_BASE_URL = "http://192.168.x.x:8000/api/v1"
+```
+
+### Changing the API base URL
+
+Edit the constant at the top of `NetworkClient.swift`:
+```swift
+let API_BASE_URL = "http://localhost:8000/api/v1"          // Simulator
+let API_BASE_URL = "http://192.168.x.x:8000/api/v1"        // Physical device (same Wi-Fi)
+let API_BASE_URL = "https://youruser.pythonanywhere.com/api/v1"  // Production
+```
+
+---
+
 ## Running locally
 
 ```bash

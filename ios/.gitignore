@@ -1,0 +1,21 @@
+# Xcode build output
+build/
+DerivedData/
+*.xcarchive
+
+# Xcode user state
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# CocoaPods (not used — pure SwiftUI, no pods)
+Pods/
+Podfile.lock
+
+# SPM
+.build/
+.swiftpm/
+
+# OS
+.DS_Store
+Thumbs.db
