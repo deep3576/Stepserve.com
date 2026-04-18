@@ -93,7 +93,7 @@ struct CreateListingView: View {
                 // Title
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Title *").font(.subheadline).fontWeight(.medium)
-                    TextField("e.g. Piano Lessons for Beginners", text: $vm.title)
+                    TextField("e.g. Home Cleaning — 3 bedroom house", text: $vm.title)
                         .padding().background(Color(.systemGray6)).cornerRadius(10)
                 }
 

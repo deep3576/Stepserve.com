@@ -114,7 +114,7 @@ fun BookingScreen(
                 shape = RoundedCornerShape(12.dp),
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.MusicNote, contentDescription = null, tint = Green700, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Filled.HomeWork, contentDescription = null, tint = Green700, modifier = Modifier.size(32.dp))
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(serviceTitle, fontWeight = FontWeight.Bold)

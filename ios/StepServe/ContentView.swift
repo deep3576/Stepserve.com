@@ -42,7 +42,7 @@ struct SplashView: View {
                     Circle()
                         .fill(Color.white.opacity(0.15))
                         .frame(width: 110, height: 110)
-                    Image(systemName: "music.note")
+                    Image(systemName: "house.fill")
                         .font(.system(size: 52, weight: .bold))
                         .foregroundColor(.white)
                 }
@@ -52,7 +52,7 @@ struct SplashView: View {
                         .font(.system(size: 36, weight: .heavy))
                         .foregroundColor(.white)
                         .tracking(-0.5)
-                    Text("Music Lessons Marketplace")
+                    Text("Local Services Marketplace")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.white.opacity(0.8))
                         .tracking(0.3)
@@ -90,7 +90,7 @@ struct AuthLandingView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             StepServeLogo(size: 26)
                             Spacer().frame(height: 8)
-                            Text("Connect with the best\nmusic teachers near you")
+                            Text("Connect with trusted local\nservice pros near you")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.9))
                                 .lineSpacing(4)

@@ -1,12 +1,12 @@
 import SwiftUI
 
-// MARK: - Brand Colors
+// MARK: - Brand Colors  (matches website: #0a7c5c primary, #085e47 dark, #f2f9f6 light)
 extension Color {
-    static let brandGreen     = Color(red: 0.18, green: 0.49, blue: 0.20)  // #2e7d32
-    static let brandGreenDark = Color(red: 0.13, green: 0.37, blue: 0.14)  // #1b5e20
-    static let brandLight     = Color(red: 0.914, green: 0.961, blue: 0.914) // #e8f5e9
-    static let gray500        = Color(red: 0.62, green: 0.62, blue: 0.62)
-    static let gray300        = Color(red: 0.82, green: 0.82, blue: 0.82)
+    static let brandGreen     = Color(red: 0.039, green: 0.486, blue: 0.361) // #0a7c5c
+    static let brandGreenDark = Color(red: 0.031, green: 0.369, blue: 0.278) // #085e47
+    static let brandLight     = Color(red: 0.949, green: 0.976, blue: 0.965) // #f2f9f6
+    static let gray500        = Color(red: 0.533, green: 0.533, blue: 0.533) // #888888
+    static let gray300        = Color(red: 0.800, green: 0.800, blue: 0.800) // #cccccc
 }
 
 // MARK: - StepServe Logo
@@ -20,7 +20,7 @@ struct StepServeLogo: View {
                 RoundedRectangle(cornerRadius: 9)
                     .fill(tint.opacity(0.2))
                     .frame(width: size + 12, height: size + 12)
-                Image(systemName: "music.note")
+                Image(systemName: "house.fill")
                     .font(.system(size: size * 0.85, weight: .semibold))
                     .foregroundColor(tint)
             }
@@ -28,7 +28,7 @@ struct StepServeLogo: View {
                 Text("StepServe")
                     .font(.system(size: size, weight: .heavy))
                     .foregroundColor(tint)
-                Text("Music Lessons")
+                Text("Local Services")
                     .font(.system(size: size * 0.5, weight: .medium))
                     .foregroundColor(tint.opacity(0.75))
                     .tracking(0.3)
@@ -186,14 +186,21 @@ struct CategoryCard: View {
 
     private func iconFor(_ name: String) -> String {
         let n = name.lowercased()
-        if n.contains("piano") || n.contains("keyboard") { return "pianokeys" }
-        if n.contains("guitar") { return "music.note" }
-        if n.contains("vocal") || n.contains("sing") || n.contains("voice") { return "waveform.and.mic" }
-        if n.contains("drum") || n.contains("percuss") { return "metronome" }
-        if n.contains("violin") || n.contains("string") { return "music.note.list" }
-        if n.contains("theory") || n.contains("compos") { return "book.fill" }
-        if n.contains("produc") || n.contains("dj") { return "headphones" }
-        return "music.note"
+        if n.contains("clean") || n.contains("maid") || n.contains("housekeep") { return "sparkles" }
+        if n.contains("landscape") || n.contains("lawn") || n.contains("garden") || n.contains("yard") { return "leaf.fill" }
+        if n.contains("plumb") || n.contains("pipe") || n.contains("drain") { return "wrench.fill" }
+        if n.contains("electric") || n.contains("wiring") || n.contains("outlet") { return "bolt.fill" }
+        if n.contains("carpet") || n.contains("wood") || n.contains("furniture") || n.contains("cabinet") { return "hammer.fill" }
+        if n.contains("paint") || n.contains("colour") || n.contains("color") { return "paintbrush.fill" }
+        if n.contains("hvac") || n.contains("heating") || n.contains("cooling") || n.contains("air") || n.contains("furnace") { return "snowflake" }
+        if n.contains("moving") || n.contains("movers") || n.contains("reloc") || n.contains("hauling") { return "shippingbox.fill" }
+        if n.contains("pet") || n.contains("dog") || n.contains("cat") || n.contains("animal") { return "pawprint.fill" }
+        if n.contains("window") || n.contains("glass") { return "square.grid.2x2.fill" }
+        if n.contains("renovat") || n.contains("remodel") || n.contains("construct") { return "building.2.fill" }
+        if n.contains("roof") || n.contains("gutter") { return "house.fill" }
+        if n.contains("lock") || n.contains("security") || n.contains("key") { return "lock.fill" }
+        if n.contains("pest") || n.contains("extermin") || n.contains("insect") { return "ant.fill" }
+        return "wrench.and.screwdriver.fill"
     }
 }
 
@@ -252,7 +259,7 @@ struct ServiceCardCompact: View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack {
                 Color.brandLight.frame(width: 40, height: 40).cornerRadius(10)
-                Image(systemName: "music.note").font(.system(size: 18)).foregroundColor(.brandGreen)
+                Image(systemName: "wrench.and.screwdriver.fill").font(.system(size: 18)).foregroundColor(.brandGreen)
             }
             Text(service.title).font(.system(size: 14, weight: .bold)).lineLimit(2)
             if let name = service.provider_name, !name.isEmpty {

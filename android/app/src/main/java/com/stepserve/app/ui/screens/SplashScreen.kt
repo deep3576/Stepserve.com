@@ -48,7 +48,7 @@ fun SplashScreen(navController: NavController) {
                 letterSpacing = 1.sp,
             )
             Text(
-                "Music lessons marketplace",
+                "Local services marketplace",
                 color = White.copy(alpha = 0.75f),
                 fontSize = 14.sp,
             )

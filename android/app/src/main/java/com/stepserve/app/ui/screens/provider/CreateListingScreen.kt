@@ -148,7 +148,7 @@ fun CreateListingScreen(navController: NavController, vm: CreateListingViewModel
                 }
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title *") }, placeholder = { Text("e.g. Piano Lessons for Beginners") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title *") }, placeholder = { Text("e.g. Home Cleaning — 3 bedroom house") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Hourly Rate (CAD) *") }, leadingIcon = { Icon(Icons.Filled.AttachMoney, contentDescription = null) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(Modifier.height(12.dp))

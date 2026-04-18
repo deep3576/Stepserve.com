@@ -59,7 +59,7 @@ struct BookingView: View {
             VStack(alignment: .leading, spacing: 20) {
                 // Service summary card
                 HStack {
-                    Image(systemName: "music.note").font(.title2).foregroundColor(.brandGreen)
+                    Image(systemName: "house.fill").font(.title2).foregroundColor(.brandGreen)
                     VStack(alignment: .leading) {
                         Text(service.title).fontWeight(.semibold)
                         Text("CAD \(service.price, specifier: "%.0f")/hr").font(.caption).foregroundColor(.brandGreen)

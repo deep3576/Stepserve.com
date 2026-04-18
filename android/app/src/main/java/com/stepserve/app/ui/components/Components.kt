@@ -32,12 +32,12 @@ fun StepServeLogo(tint: Color = White, textSize: TextUnit = 22.sp, iconSize: Dp 
             modifier = Modifier.size(iconSize + 10.dp).background(White.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.MusicNote, contentDescription = "StepServe", tint = tint, modifier = Modifier.size(iconSize))
+            Icon(Icons.Filled.HomeWork, contentDescription = "StepServe", tint = tint, modifier = Modifier.size(iconSize))
         }
         Spacer(Modifier.width(10.dp))
         Column {
             Text("StepServe", color = tint, fontSize = textSize, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
-            Text("Music Lessons", color = tint.copy(alpha = 0.75f), fontSize = (textSize.value * 0.52f).sp, letterSpacing = 0.3.sp)
+            Text("Local Services", color = tint.copy(alpha = 0.75f), fontSize = (textSize.value * 0.52f).sp, letterSpacing = 0.3.sp)
         }
     }
 }
@@ -158,15 +158,21 @@ fun CategoryCard(category: Category, selected: Boolean = false, onClick: () -> U
 }
 
 private fun categoryIcon(name: String): ImageVector = when {
-    name.contains("piano", true) || name.contains("keyboard", true) -> Icons.Filled.Piano
-    name.contains("guitar", true) -> Icons.Filled.MusicNote
-    name.contains("vocal", true) || name.contains("sing", true) || name.contains("voice", true) -> Icons.Filled.RecordVoiceOver
-    name.contains("drum", true) || name.contains("percuss", true) -> Icons.Filled.FeaturedPlayList
-    name.contains("violin", true) || name.contains("string", true) -> Icons.Filled.LibraryMusic
-    name.contains("theory", true) || name.contains("compos", true) -> Icons.Filled.MenuBook
-    name.contains("produc", true) || name.contains("dj", true) -> Icons.Filled.Headphones
-    name.contains("trumpet", true) || name.contains("brass", true) || name.contains("wind", true) -> Icons.Filled.GraphicEq
-    else -> Icons.Filled.MusicNote
+    name.contains("clean", true) || name.contains("maid", true) || name.contains("housekeep", true) -> Icons.Filled.CleaningServices
+    name.contains("landscape", true) || name.contains("lawn", true) || name.contains("garden", true) || name.contains("yard", true) -> Icons.Filled.Park
+    name.contains("plumb", true) || name.contains("pipe", true) || name.contains("drain", true) -> Icons.Filled.Plumbing
+    name.contains("electric", true) || name.contains("wiring", true) || name.contains("outlet", true) -> Icons.Filled.Bolt
+    name.contains("carpet", true) || name.contains("wood", true) || name.contains("furniture", true) || name.contains("cabinet", true) -> Icons.Filled.Handyman
+    name.contains("paint", true) || name.contains("colour", true) || name.contains("color", true) -> Icons.Filled.FormatPaint
+    name.contains("hvac", true) || name.contains("heating", true) || name.contains("cooling", true) || name.contains("air", true) || name.contains("furnace", true) -> Icons.Filled.AcUnit
+    name.contains("moving", true) || name.contains("movers", true) || name.contains("reloc", true) || name.contains("hauling", true) -> Icons.Filled.LocalShipping
+    name.contains("pet", true) || name.contains("dog", true) || name.contains("cat", true) || name.contains("animal", true) -> Icons.Filled.Pets
+    name.contains("window", true) || name.contains("glass", true) -> Icons.Filled.Window
+    name.contains("renovat", true) || name.contains("remodel", true) || name.contains("construct", true) -> Icons.Filled.Construction
+    name.contains("roof", true) || name.contains("gutter", true) -> Icons.Filled.Roofing
+    name.contains("lock", true) || name.contains("security", true) || name.contains("key", true) -> Icons.Filled.Lock
+    name.contains("pest", true) || name.contains("extermina", true) || name.contains("insect", true) -> Icons.Filled.BugReport
+    else -> Icons.Filled.MiscellaneousServices
 }
 
 // ── Service card (list) ───────────────────────────────────────────────────────
@@ -231,7 +237,7 @@ fun ServiceCardCompact(service: Service, modifier: Modifier = Modifier, onClick:
     ) {
         Column(Modifier.padding(14.dp)) {
             Box(Modifier.size(40.dp).background(GreenLight, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.MusicNote, null, tint = Green700, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.HomeWork, null, tint = Green700, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.height(10.dp))
             Text(service.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)

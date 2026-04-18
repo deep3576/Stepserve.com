@@ -86,7 +86,7 @@ struct SearchView: View {
             if vm.isLoading {
                 LoadingView()
             } else if vm.results.isEmpty {
-                EmptyState(icon: "music.note.list", title: "No services found", message: "Try different search terms or filters")
+                EmptyState(icon: "magnifyingglass", title: "No services found", message: "Try different search terms or filters")
             } else {
                 List(vm.results) { svc in
                     NavigationLink(destination: ServiceDetailView(service: svc)) {

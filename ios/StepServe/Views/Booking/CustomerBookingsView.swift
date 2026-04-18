@@ -24,7 +24,7 @@ struct CustomerBookingsView: View {
             if vm.isLoading {
                 LoadingView()
             } else if vm.bookings.isEmpty {
-                EmptyState(icon: "calendar.badge.plus", title: "No bookings yet", message: "Browse services and book your first lesson")
+                EmptyState(icon: "calendar.badge.plus", title: "No bookings yet", message: "Browse services and book your first appointment")
             } else {
                 List(vm.bookings) { booking in
                     BookingRow(booking: booking)

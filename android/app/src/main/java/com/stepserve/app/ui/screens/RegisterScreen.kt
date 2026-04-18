@@ -105,7 +105,7 @@ fun RegisterScreen(navController: NavController, vm: RegisterViewModel = viewMod
                 .padding(24.dp),
         ) {
             Text("Join StepServe", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Find or offer music lessons", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text("Find or offer local services", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             Spacer(Modifier.height(24.dp))
 
             if (state is RegisterState.Error) {
@@ -117,7 +117,7 @@ fun RegisterScreen(navController: NavController, vm: RegisterViewModel = viewMod
             Text("I want to:", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf("customer" to "Find a teacher", "provider" to "Teach / offer services").forEach { (role, label) ->
+                listOf("customer" to "Find a pro", "provider" to "Offer services").forEach { (role, label) ->
                     Card(
                         onClick = { selectedRole = role },
                         modifier = Modifier.weight(1f),

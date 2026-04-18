@@ -53,7 +53,7 @@ struct AdminCategoriesView: View {
                     }
                     ForEach(vm.categories) { cat in
                         HStack {
-                            Image(systemName: "music.note").foregroundColor(.brandGreen)
+                            Image(systemName: "wrench.and.screwdriver.fill").foregroundColor(.brandGreen)
                             VStack(alignment: .leading) {
                                 Text(cat.name).fontWeight(.medium)
                                 Text(cat.slug).font(.caption).foregroundColor(.secondary)

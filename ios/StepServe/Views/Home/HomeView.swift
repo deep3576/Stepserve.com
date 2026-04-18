@@ -51,10 +51,10 @@ struct HomeView: View {
             .frame(height: 150)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Find Music Teachers")
+                Text("Find trusted local service pros")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(.white)
-                Text("Book lessons near you in Canada")
+                Text("Verified, insured, and reviewed — right in your neighbourhood")
                     .font(.system(size: 14))
                     .foregroundColor(.white.opacity(0.85))
             }

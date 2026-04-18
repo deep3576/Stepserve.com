@@ -83,9 +83,9 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = viewModel()) {
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Column(Modifier.padding(horizontal = 20.dp)) {
-                        Text("Find Music Teachers", color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text("Find trusted local service pros", color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
-                        Text("Book lessons near you in Canada", color = White.copy(alpha = 0.85f), fontSize = 14.sp)
+                        Text("Verified, insured, and reviewed — right in your neighbourhood", color = White.copy(alpha = 0.85f), fontSize = 14.sp)
                         Spacer(Modifier.height(14.dp))
                         Surface(
                             color = White,
@@ -98,7 +98,7 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = viewModel()) {
                             ) {
                                 Icon(Icons.Filled.Search, null, tint = Gray500, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Search services…", color = Gray500, fontSize = 14.sp)
+                                Text("Search for a service…", color = Gray500, fontSize = 14.sp)
                             }
                         }
                     }

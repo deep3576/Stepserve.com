@@ -185,7 +185,7 @@ fun ServiceDetailScreen(
                                 listOf(
                                     Icons.Filled.CalendarToday to "Pick your date & time",
                                     Icons.Filled.Payment to "Pay securely online",
-                                    Icons.Filled.MusicNote to "Enjoy your lesson",
+                                    Icons.Filled.CheckCircle to "Service completed",
                                 ).forEach { (icon, step) ->
                                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
                                         Icon(icon, contentDescription = null, tint = Green700, modifier = Modifier.size(18.dp))
