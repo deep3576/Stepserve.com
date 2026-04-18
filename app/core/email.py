@@ -53,8 +53,8 @@ def send_email(to: str | list[str], subject: str, html: str) -> None:
 
 # ── brand helpers ─────────────────────────────────────────────────────────────
 
-_BRAND_GREEN = "#2e7d32"
-_BRAND_LIGHT = "#f1f8f1"
+_BRAND_GREEN = "#0a7c5c"
+_BRAND_LIGHT = "#f2f9f6"
 
 def _base(title: str, body: str) -> str:
     """Wrap content in a simple, clean HTML email shell."""
@@ -76,7 +76,7 @@ def _base(title: str, body: str) -> str:
         <tr>
           <td style="background:{_BRAND_GREEN};padding:24px 32px;">
             <h1 style="margin:0;color:#fff;font-size:22px;letter-spacing:.5px;">StepServe</h1>
-            <p style="margin:4px 0 0;color:#c8e6c9;font-size:13px;">Music lessons marketplace</p>
+            <p style="margin:4px 0 0;color:#a7f3d0;font-size:13px;">Local services marketplace</p>
           </td>
         </tr>
 
@@ -291,3 +291,35 @@ def new_booking_admin_html(
         )}
     """
     return _base(f"New Booking {ref} — Admin Alert", body)
+
+
+def password_reset_html(*, email: str, code: str, expires_minutes: int = 15) -> str:
+    """Password reset code email sent to the user."""
+    body = f"""
+        {_heading("Reset Your Password")}
+        {_subtext("We received a request to reset the password for your StepServe account.")}
+
+        <div style="text-align:center;margin:32px 0;">
+          <p style="margin:0 0 8px;font-size:14px;color:#555;">Your reset code is:</p>
+          <div style="display:inline-block;background:{_BRAND_GREEN};color:#fff;
+                      font-size:36px;font-weight:bold;letter-spacing:10px;
+                      padding:16px 32px;border-radius:10px;">
+            {code}
+          </div>
+          <p style="margin:16px 0 0;font-size:13px;color:#9e9e9e;">
+            This code expires in <strong>{expires_minutes} minutes</strong>.
+          </p>
+        </div>
+
+        <p style="font-size:13px;color:#555;margin:0 0 8px;">
+          Enter this code in the StepServe app along with your new password to complete the reset.
+        </p>
+        <p style="font-size:12px;color:#9e9e9e;margin:0;">
+          If you did not request a password reset, you can safely ignore this email.
+          Your password will not be changed.
+        </p>
+        <p style="font-size:12px;color:#9e9e9e;margin:12px 0 0;">
+          Account: {email}
+        </p>
+    """
+    return _base("Password Reset Code — StepServe", body)

@@ -19,6 +19,16 @@ data class TokenResponse(
     @SerializedName("access_token") val accessToken: String,
 )
 
+data class ForgotPasswordRequest(val email: String)
+
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    @SerializedName("new_password") val newPassword: String,
+)
+
+data class MessageResponse(val message: String)
+
 data class UserMe(
     val id: Int,
     val email: String,

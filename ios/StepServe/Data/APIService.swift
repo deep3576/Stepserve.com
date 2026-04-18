@@ -17,6 +17,17 @@ enum API {
         await net.request(path: "/auth/me")
     }
 
+    static func forgotPassword(email: String) async -> APIResult<MessageResponse> {
+        await net.request(path: "/auth/forgot-password", method: "POST",
+                          body: ForgotPasswordRequest(email: email), authenticated: false)
+    }
+
+    static func resetPassword(email: String, code: String, newPassword: String) async -> APIResult<MessageResponse> {
+        await net.request(path: "/auth/reset-password", method: "POST",
+                          body: ResetPasswordRequest(email: email, code: code, new_password: newPassword),
+                          authenticated: false)
+    }
+
     // MARK: - Home / Marketplace
     static func home() async -> APIResult<HomeData> {
         await net.request(path: "/stepserve/home", authenticated: false)

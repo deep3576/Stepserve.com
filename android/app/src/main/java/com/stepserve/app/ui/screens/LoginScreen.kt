@@ -156,7 +156,14 @@ fun LoginScreen(navController: NavController, vm: LoginViewModel = viewModel()) 
                 onClick = { vm.login(email, password) },
                 enabled = state !is LoginState.Loading,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
+            TextButton(
+                onClick = { navController.navigate(Routes.FORGOT_PASSWORD) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Forgot password?", color = Green700, fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Text("Don't have an account?", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Spacer(Modifier.width(4.dp))

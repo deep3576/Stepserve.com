@@ -17,6 +17,12 @@ interface ApiService {
     @GET("auth/me")
     suspend fun me(): Response<UserMe>
 
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(@Body body: ForgotPasswordRequest): Response<MessageResponse>
+
+    @POST("auth/reset-password")
+    suspend fun resetPassword(@Body body: ResetPasswordRequest): Response<MessageResponse>
+
     // ── Public marketplace ───────────────────────────────────────────────────
 
     @GET("stepserve/home")

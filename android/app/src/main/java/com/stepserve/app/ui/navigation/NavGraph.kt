@@ -29,6 +29,10 @@ object Routes {
     const val CUSTOMER_BOOKINGS = "bookings"
     const val PROFILE = "profile"
     // Provider
+    const val FORGOT_PASSWORD  = "forgot-password"
+    const val RESET_PASSWORD   = "reset-password/{email}"
+    fun resetPassword(email: String) = "reset-password/${java.net.URLEncoder.encode(email, "UTF-8")}"
+    // Provider
     const val PROVIDER_DASHBOARD = "provider/dashboard"
     const val CREATE_LISTING = "provider/create"
     const val PROVIDER_LISTINGS = "provider/listings"
@@ -113,6 +117,17 @@ fun NavGraph() {
             }
             composable(Routes.REGISTER) {
                 RegisterScreen(navController)
+            }
+            composable(Routes.FORGOT_PASSWORD) {
+                ForgotPasswordScreen(navController)
+            }
+            composable(
+                Routes.RESET_PASSWORD,
+                arguments = listOf(navArgument("email") { type = NavType.StringType }),
+            ) { back ->
+                val email = back.arguments?.getString("email")
+                    ?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: ""
+                ResetPasswordScreen(navController, email)
             }
             composable(Routes.HOME) {
                 HomeScreen(navController)

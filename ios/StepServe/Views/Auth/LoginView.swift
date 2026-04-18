@@ -58,6 +58,11 @@ struct LoginView: View {
 
                 PrimaryButton(title: "Log In", action: { Task { await vm.login() } }, isLoading: vm.isLoading)
 
+                NavigationLink(destination: ForgotPasswordView()) {
+                    Text("Forgot password?")
+                        .font(.subheadline).foregroundColor(.brandGreen)
+                }
+
                 NavigationLink("Don't have an account? Register") {
                     RegisterView()
                 }

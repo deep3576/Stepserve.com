@@ -17,6 +17,20 @@ struct TokenResponse: Decodable {
     let token_type: String
 }
 
+struct ForgotPasswordRequest: Encodable {
+    let email: String
+}
+
+struct ResetPasswordRequest: Encodable {
+    let email: String
+    let code: String
+    let new_password: String
+}
+
+struct MessageResponse: Decodable {
+    let message: String
+}
+
 struct UserMe: Decodable {
     let id: Int
     let email: String
