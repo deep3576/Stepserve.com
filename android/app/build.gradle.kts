@@ -17,32 +17,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    signingConfigs {
-        create("release") {
-            // Place stepserve.keystore in the android/ root directory.
-            // Set these four values — either hardcode here or use local.properties (recommended).
-            val props = java.util.Properties().apply {
-                val f = rootProject.file("keystore.properties")
-                if (f.exists()) load(f.inputStream())
-            }
-            storeFile     = file(props.getProperty("storeFile",     "stepserve.keystore"))
-            storePassword = props.getProperty("storePassword", "")
-            keyAlias      = props.getProperty("keyAlias",      "stepserve")
-            keyPassword   = props.getProperty("keyPassword",   "")
-        }
-    }
-
     buildTypes {
         debug {
-            // Emulator localhost — change to your LAN IP for a physical device
+            // Change to your LAN IP when testing on a physical device
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.0.168:8000/api/v1/\"")
         }
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // TODO: change to your production URL before publishing
+            // Change to your production URL before publishing
             buildConfigField("String", "API_BASE_URL", "\"https://youruser.pythonanywhere.com/api/v1/\"")
-            signingConfig = signingConfigs.getByName("release")
         }
     }
 
