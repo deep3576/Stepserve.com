@@ -2,9 +2,39 @@ import SwiftUI
 
 // MARK: - Brand Colors
 extension Color {
-    static let brandGreen    = Color(red: 0.18, green: 0.49, blue: 0.20)  // #2e7d32
-    static let brandGreen700 = Color(red: 0.22, green: 0.56, blue: 0.24)  // #388e3c
-    static let brandLight    = Color(red: 0.945, green: 0.973, blue: 0.945) // #f1f8f1
+    static let brandGreen     = Color(red: 0.18, green: 0.49, blue: 0.20)  // #2e7d32
+    static let brandGreenDark = Color(red: 0.13, green: 0.37, blue: 0.14)  // #1b5e20
+    static let brandLight     = Color(red: 0.914, green: 0.961, blue: 0.914) // #e8f5e9
+    static let gray500        = Color(red: 0.62, green: 0.62, blue: 0.62)
+    static let gray300        = Color(red: 0.82, green: 0.82, blue: 0.82)
+}
+
+// MARK: - StepServe Logo
+struct StepServeLogo: View {
+    var tint: Color = .white
+    var size: CGFloat = 22
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(tint.opacity(0.2))
+                    .frame(width: size + 12, height: size + 12)
+                Image(systemName: "music.note")
+                    .font(.system(size: size * 0.85, weight: .semibold))
+                    .foregroundColor(tint)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text("StepServe")
+                    .font(.system(size: size, weight: .heavy))
+                    .foregroundColor(tint)
+                Text("Music Lessons")
+                    .font(.system(size: size * 0.5, weight: .medium))
+                    .foregroundColor(tint.opacity(0.75))
+                    .tracking(0.3)
+            }
+        }
+    }
 }
 
 // MARK: - PrimaryButton
@@ -16,15 +46,16 @@ struct PrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack {
-                if isLoading { ProgressView().tint(.white).padding(.trailing, 4) }
-                Text(title).fontWeight(.semibold)
+            HStack(spacing: 8) {
+                if isLoading { ProgressView().tint(.white).scaleEffect(0.9) }
+                Text(title).fontWeight(.semibold).font(.system(size: 15))
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(disabled || isLoading ? Color.gray.opacity(0.4) : Color.brandGreen)
+            .frame(height: 52)
+            .background(disabled || isLoading ? Color.gray.opacity(0.35) : Color.brandGreen)
             .foregroundColor(.white)
             .cornerRadius(12)
+            .shadow(color: Color.brandGreen.opacity(0.3), radius: 4, y: 2)
         }
         .disabled(disabled || isLoading)
     }
@@ -34,13 +65,13 @@ struct PrimaryButton: View {
 struct SuccessBanner: View {
     let message: String
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-            Text(message).font(.subheadline).foregroundColor(.green)
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill").foregroundColor(.brandGreen).font(.system(size: 16))
+            Text(message).font(.system(size: 13)).foregroundColor(.brandGreen).fixedSize(horizontal: false, vertical: true)
+            Spacer()
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.green.opacity(0.1))
+        .padding(12)
+        .background(Color(red: 0.882, green: 0.961, blue: 0.882))
         .cornerRadius(10)
     }
 }
@@ -48,13 +79,13 @@ struct SuccessBanner: View {
 struct ErrorBanner: View {
     let message: String
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "xmark.circle.fill").foregroundColor(.red)
-            Text(message).font(.subheadline).foregroundColor(.red)
+        HStack(spacing: 10) {
+            Image(systemName: "xmark.circle.fill").foregroundColor(.red).font(.system(size: 16))
+            Text(message).font(.system(size: 13)).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
+            Spacer()
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.red.opacity(0.1))
+        .padding(12)
+        .background(Color(red: 0.992, green: 0.918, blue: 0.918))
         .cornerRadius(10)
     }
 }
@@ -62,8 +93,11 @@ struct ErrorBanner: View {
 // MARK: - LoadingView
 struct LoadingView: View {
     var body: some View {
-        VStack { ProgressView().scaleEffect(1.5).padding() }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 14) {
+            ProgressView().scaleEffect(1.4).tint(.brandGreen)
+            Text("Loading…").font(.system(size: 14)).foregroundColor(.gray500)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -73,12 +107,15 @@ struct EmptyState: View {
     let title: String
     let message: String
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 48)).foregroundColor(.gray.opacity(0.5))
-            Text(title).font(.headline)
+        VStack(spacing: 14) {
+            ZStack {
+                Circle().fill(Color.brandLight).frame(width: 72, height: 72)
+                Image(systemName: icon).font(.system(size: 30)).foregroundColor(.brandGreen)
+            }
+            Text(title).font(.headline).fontWeight(.bold)
             Text(message).font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center)
         }
-        .padding(32)
+        .padding(40)
         .frame(maxWidth: .infinity)
     }
 }
@@ -86,55 +123,152 @@ struct EmptyState: View {
 // MARK: - SectionHeader
 struct SectionHeader: View {
     let title: String
+    var actionTitle: String? = nil
+    var onAction: (() -> Void)? = nil
+
     var body: some View {
-        Text(title)
-            .font(.headline)
-            .fontWeight(.bold)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 4)
+        HStack {
+            HStack(spacing: 8) {
+                Rectangle().fill(Color.brandGreen).frame(width: 4, height: 20).cornerRadius(2)
+                Text(title).font(.system(size: 16, weight: .bold))
+            }
+            Spacer()
+            if let a = actionTitle, let fn = onAction {
+                Button(a, action: fn).font(.system(size: 12)).foregroundColor(.brandGreen)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 }
 
-// MARK: - ServiceCard
+// MARK: - CategoryCard (list-style, full row)
+struct CategoryCard: View {
+    let category: Category
+    var selected: Bool = false
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(selected ? Color.white.opacity(0.2) : Color.brandLight)
+                        .frame(width: 46, height: 46)
+                    Image(systemName: iconFor(category.name))
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(selected ? .white : .brandGreen)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(category.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(selected ? .white : .primary)
+                        .lineLimit(1)
+                    Text("\(category.services_count ?? 0) listing\((category.services_count ?? 0) == 1 ? "" : "s")")
+                        .font(.system(size: 12))
+                        .foregroundColor(selected ? .white.opacity(0.75) : .gray500)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(selected ? .white.opacity(0.6) : .gray300)
+            }
+            .padding(14)
+            .background(selected ? Color.brandGreen : Color(.systemBackground))
+            .cornerRadius(14)
+            .shadow(color: .black.opacity(selected ? 0 : 0.06), radius: 4, x: 0, y: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(selected ? Color.clear : Color(.systemGray5), lineWidth: 1)
+            )
+        }
+    }
+
+    private func iconFor(_ name: String) -> String {
+        let n = name.lowercased()
+        if n.contains("piano") || n.contains("keyboard") { return "pianokeys" }
+        if n.contains("guitar") { return "music.note" }
+        if n.contains("vocal") || n.contains("sing") || n.contains("voice") { return "waveform.and.mic" }
+        if n.contains("drum") || n.contains("percuss") { return "metronome" }
+        if n.contains("violin") || n.contains("string") { return "music.note.list" }
+        if n.contains("theory") || n.contains("compos") { return "book.fill" }
+        if n.contains("produc") || n.contains("dj") { return "headphones" }
+        return "music.note"
+    }
+}
+
+// MARK: - ServiceCard (list)
 struct ServiceCard: View {
     let service: Service
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Image(systemName: "music.note").foregroundColor(.brandGreen)
-                Text(service.title).font(.subheadline).fontWeight(.semibold).lineLimit(1)
-                Spacer()
-                Text("CAD \(service.price, specifier: "%.0f")/hr")
-                    .font(.caption).fontWeight(.bold).foregroundColor(.brandGreen)
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                LinearGradient(colors: [Color.brandGreen, Color(red: 0.26, green: 0.63, blue: 0.28)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .frame(width: 52, height: 52)
+                    .cornerRadius(13)
+                Text(String(service.title.prefix(1)).uppercased())
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.white)
             }
-            if let location = service.location, !location.isEmpty {
-                Label(location, systemImage: "mappin.circle").font(.caption).foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(service.title)
+                    .font(.system(size: 15, weight: .bold))
+                    .lineLimit(1)
+                if let name = service.provider_name, !name.isEmpty {
+                    Label(name, systemImage: "person.fill")
+                        .font(.system(size: 12)).foregroundColor(.gray500).lineLimit(1)
+                }
+                if let loc = service.location, !loc.isEmpty {
+                    Label(loc, systemImage: "mappin.circle.fill")
+                        .font(.system(size: 12)).foregroundColor(.gray500).lineLimit(1)
+                }
+                if let desc = service.description, !desc.isEmpty {
+                    Text(desc).font(.system(size: 12)).foregroundColor(.secondary).lineLimit(2)
+                        .padding(.top, 2)
+                }
             }
-            if let name = service.provider_name, !name.isEmpty {
-                Label(name, systemImage: "person.circle").font(.caption).foregroundColor(.secondary)
-            }
+            Spacer(minLength: 4)
+            Text("CAD \(Int(service.price))/hr")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.brandGreen)
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(Color.brandLight)
+                .cornerRadius(8)
         }
         .padding(14)
         .background(Color(.systemBackground))
-        .cornerRadius(12)
+        .cornerRadius(14)
         .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
     }
 }
 
-// MARK: - CategoryChip
-struct CategoryChip: View {
-    let category: Category
-    let selected: Bool
-    let onTap: () -> Void
+// MARK: - ServiceCardCompact (horizontal scroll)
+struct ServiceCardCompact: View {
+    let service: Service
+
     var body: some View {
-        Button(action: onTap) {
-            Text(category.name)
-                .font(.caption).fontWeight(.medium)
-                .padding(.horizontal, 14).padding(.vertical, 7)
-                .background(selected ? Color.brandGreen : Color(.systemGray5))
-                .foregroundColor(selected ? .white : .primary)
-                .cornerRadius(20)
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                Color.brandLight.frame(width: 40, height: 40).cornerRadius(10)
+                Image(systemName: "music.note").font(.system(size: 18)).foregroundColor(.brandGreen)
+            }
+            Text(service.title).font(.system(size: 14, weight: .bold)).lineLimit(2)
+            if let name = service.provider_name, !name.isEmpty {
+                Text(name).font(.system(size: 11)).foregroundColor(.gray500).lineLimit(1)
+            }
+            Spacer()
+            Text("CAD \(Int(service.price))/hr")
+                .font(.system(size: 11, weight: .bold)).foregroundColor(.brandGreen)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(Color.brandLight).cornerRadius(6)
         }
+        .padding(14)
+        .frame(width: 170, height: 150)
+        .background(Color(.systemBackground))
+        .cornerRadius(14)
+        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
     }
 }
 
@@ -143,16 +277,23 @@ struct StatCard: View {
     let title: String
     let value: String
     let icon: String
+    var tint: Color = .brandGreen
+
     var body: some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon).font(.title2).foregroundColor(.brandGreen)
-            Text(value).font(.title3).fontWeight(.bold)
-            Text(title).font(.caption).foregroundColor(.secondary).multilineTextAlignment(.center)
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.12)).frame(width: 44, height: 44)
+                Image(systemName: icon).font(.system(size: 18)).foregroundColor(tint)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value).font(.system(size: 22, weight: .heavy))
+                Text(title).font(.system(size: 12)).foregroundColor(.secondary)
+            }
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .padding()
+        .padding(16)
         .background(Color(.systemBackground))
-        .cornerRadius(12)
+        .cornerRadius(14)
         .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 1)
     }
 }
@@ -162,28 +303,27 @@ struct StatusBadge: View {
     let status: String
     var body: some View {
         Text(status.uppercased())
-            .font(.caption2).fontWeight(.bold)
+            .font(.system(size: 10, weight: .bold))
+            .tracking(0.5)
             .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(color(for: status))
-            .foregroundColor(.white)
-            .cornerRadius(6)
+            .background(bgColor).foregroundColor(fgColor)
+            .cornerRadius(5)
     }
-    private func color(for s: String) -> Color {
-        switch s.lowercased() {
-        case "paid", "confirmed", "completed": return .brandGreen
-        case "pending": return .orange
-        case "cancelled": return .red
-        default: return .gray
+    private var bgColor: Color {
+        switch status.lowercased() {
+        case "paid", "confirmed", "active": return Color(red: 0.882, green: 0.961, blue: 0.882)
+        case "pending": return Color(red: 1, green: 0.973, blue: 0.882)
+        case "completed": return Color(red: 0.882, green: 0.945, blue: 0.992)
+        default: return Color(.systemGray6)
         }
     }
-}
-
-// MARK: - BackButton helper
-struct BackButton: View {
-    @Environment(\.dismiss) var dismiss
-    var body: some View {
-        Button(action: { dismiss() }) {
-            Image(systemName: "chevron.left").fontWeight(.semibold)
+    private var fgColor: Color {
+        switch status.lowercased() {
+        case "paid", "confirmed", "active": return .brandGreen
+        case "pending": return .orange
+        case "completed": return .blue
+        case "inactive", "cancelled": return .red
+        default: return .secondary
         }
     }
 }

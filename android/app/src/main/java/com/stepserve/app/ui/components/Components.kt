@@ -2,6 +2,7 @@ package com.stepserve.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,39 +10,64 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.stepserve.app.data.api.Category
 import com.stepserve.app.data.api.Service
 import com.stepserve.app.ui.theme.*
 
-// ── Loading ──────────────────────────────────────────────────────────────────
-
+// ── StepServe Logo ────────────────────────────────────────────────────────────
 @Composable
-fun FullScreenLoader() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = Green700)
+fun StepServeLogo(tint: Color = White, textSize: TextUnit = 22.sp, iconSize: Dp = 26.dp) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier.size(iconSize + 10.dp).background(White.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.MusicNote, contentDescription = "StepServe", tint = tint, modifier = Modifier.size(iconSize))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text("StepServe", color = tint, fontSize = textSize, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
+            Text("Music Lessons", color = tint.copy(alpha = 0.75f), fontSize = (textSize.value * 0.52f).sp, letterSpacing = 0.3.sp)
+        }
     }
 }
 
-// ── Error / empty states ─────────────────────────────────────────────────────
+// ── Loading ───────────────────────────────────────────────────────────────────
+@Composable
+fun FullScreenLoader() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = Green700, strokeWidth = 3.dp, modifier = Modifier.size(40.dp))
+            Spacer(Modifier.height(14.dp))
+            Text("Loading…", color = Gray500, fontSize = 14.sp)
+        }
+    }
+}
 
+// ── Banners ───────────────────────────────────────────────────────────────────
 @Composable
 fun ErrorBanner(message: String, onRetry: (() -> Unit)? = null) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFfdecea)),
-        shape = RoundedCornerShape(8.dp),
+    Row(
+        modifier = Modifier.fillMaxWidth().background(Color(0xFFfdecea), RoundedCornerShape(10.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Error, contentDescription = null, tint = RedError)
-            Spacer(Modifier.width(8.dp))
-            Text(message, color = RedError, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (onRetry != null) {
-                TextButton(onClick = onRetry) { Text("Retry", color = RedError) }
+        Icon(Icons.Filled.Error, null, tint = RedError, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(message, color = RedError, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        if (onRetry != null) {
+            TextButton(onClick = onRetry, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                Text("Retry", color = RedError, fontSize = 12.sp)
             }
         }
     }
@@ -49,165 +75,201 @@ fun ErrorBanner(message: String, onRetry: (() -> Unit)? = null) {
 
 @Composable
 fun SuccessBanner(message: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFe1f5ee)),
-        shape = RoundedCornerShape(8.dp),
+    Row(
+        modifier = Modifier.fillMaxWidth().background(Color(0xFFe1f5ee), RoundedCornerShape(10.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Green700)
-            Spacer(Modifier.width(8.dp))
-            Text(message, color = Green700, style = MaterialTheme.typography.bodyMedium)
-        }
+        Icon(Icons.Filled.CheckCircle, null, tint = Green700, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(message, color = Green700, fontSize = 13.sp, modifier = Modifier.weight(1f))
     }
 }
 
+// ── Empty state ───────────────────────────────────────────────────────────────
 @Composable
 fun EmptyState(message: String, icon: ImageVector = Icons.Filled.Inbox) {
-    Column(
-        Modifier.fillMaxWidth().padding(40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(icon, contentDescription = null, tint = Gray300, modifier = Modifier.size(56.dp))
-        Spacer(Modifier.height(12.dp))
-        Text(message, color = Gray500, style = MaterialTheme.typography.bodyMedium)
+    Column(Modifier.fillMaxWidth().padding(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(72.dp).background(GreenLight, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Green700, modifier = Modifier.size(36.dp))
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(message, color = Gray500, fontSize = 14.sp, textAlign = TextAlign.Center)
     }
 }
 
 // ── Section header ────────────────────────────────────────────────────────────
-
 @Composable
 fun SectionHeader(title: String, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(4.dp).height(20.dp).background(Green700, RoundedCornerShape(2.dp)))
+            Spacer(Modifier.width(8.dp))
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
         if (action != null && onAction != null) {
-            TextButton(onClick = onAction) {
-                Text(action, color = Green700, fontSize = 13.sp)
+            TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                Text(action, color = Green700, fontSize = 12.sp)
             }
         }
     }
 }
 
-// ── Service card ──────────────────────────────────────────────────────────────
+// ── Category card (list-style, full width) ────────────────────────────────────
+@Composable
+fun CategoryCard(category: Category, selected: Boolean = false, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = if (selected) Green700 else MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = if (!selected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEEEEEE)) else null,
+    ) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(46.dp).background(
+                    if (selected) White.copy(alpha = 0.2f) else GreenLight, RoundedCornerShape(12.dp),
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(categoryIcon(category.name), null, tint = if (selected) White else Green700, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    category.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    color = if (selected) White else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                val count = category.servicesCount ?: 0
+                Text(
+                    "$count listing${if (count != 1) "s" else ""}",
+                    fontSize = 12.sp, color = if (selected) White.copy(alpha = 0.75f) else Gray500,
+                )
+            }
+            Icon(Icons.Filled.ChevronRight, null, tint = if (selected) White.copy(alpha = 0.6f) else Gray300, modifier = Modifier.size(18.dp))
+        }
+    }
+}
 
+private fun categoryIcon(name: String): ImageVector = when {
+    name.contains("piano", true) || name.contains("keyboard", true) -> Icons.Filled.Piano
+    name.contains("guitar", true) -> Icons.Filled.MusicNote
+    name.contains("vocal", true) || name.contains("sing", true) || name.contains("voice", true) -> Icons.Filled.RecordVoiceOver
+    name.contains("drum", true) || name.contains("percuss", true) -> Icons.Filled.FeaturedPlayList
+    name.contains("violin", true) || name.contains("string", true) -> Icons.Filled.LibraryMusic
+    name.contains("theory", true) || name.contains("compos", true) -> Icons.Filled.MenuBook
+    name.contains("produc", true) || name.contains("dj", true) -> Icons.Filled.Headphones
+    name.contains("trumpet", true) || name.contains("brass", true) || name.contains("wind", true) -> Icons.Filled.GraphicEq
+    else -> Icons.Filled.MusicNote
+}
+
+// ── Service card (list) ───────────────────────────────────────────────────────
 @Composable
 fun ServiceCard(service: Service, onClick: () -> Unit) {
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        onClick = onClick, modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(GreenLight, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = service.title.take(1).uppercase(),
-                        color = Green700,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        service.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (!service.providerName.isNullOrBlank()) {
-                        Text(
-                            service.providerName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+            Box(
+                modifier = Modifier.size(52.dp).background(
+                    Brush.linearGradient(listOf(Green700, Color(0xFF43A047))), RoundedCornerShape(13.dp),
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(service.title.take(1).uppercase(), color = White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(service.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(3.dp))
+                if (!service.providerName.isNullOrBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Person, null, tint = Gray500, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(service.providerName, fontSize = 12.sp, color = Gray500, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                Text(
-                    "CAD ${service.price.toInt()}/hr",
-                    color = Green700,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                )
-            }
-            if (!service.description.isNullOrBlank()) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    service.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (!service.location.isNullOrBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Gray500, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(2.dp))
-                    Text(service.location, style = MaterialTheme.typography.bodySmall, color = Gray500)
+                if (!service.location.isNullOrBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.LocationOn, null, tint = Gray500, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(service.location, fontSize = 12.sp, color = Gray500, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
+                if (!service.description.isNullOrBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(service.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Surface(color = GreenLight, shape = RoundedCornerShape(8.dp)) {
+                Text("CAD ${service.price.toInt()}/hr", color = Green700, fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
             }
         }
     }
 }
 
-// ── Category chip ─────────────────────────────────────────────────────────────
-
+// ── Compact service card (horizontal scroll) ──────────────────────────────────
 @Composable
-fun CategoryChip(name: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(name, fontSize = 13.sp) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = Green700,
-            selectedLabelColor = White,
-        ),
-    )
+fun ServiceCardCompact(service: Service, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(
+        onClick = onClick, modifier = modifier.width(190.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Box(Modifier.size(40.dp).background(GreenLight, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.MusicNote, null, tint = Green700, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(service.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(3.dp))
+            if (!service.providerName.isNullOrBlank()) {
+                Text(service.providerName, fontSize = 11.sp, color = Gray500, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(8.dp))
+            Surface(color = GreenLight, shape = RoundedCornerShape(6.dp)) {
+                Text("CAD ${service.price.toInt()}/hr", color = Green700, fontWeight = FontWeight.Bold, fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp))
+            }
+        }
+    }
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
-
 @Composable
 fun StatCard(label: String, value: String, icon: ImageVector, tint: Color = Green700) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(tint.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+            Box(Modifier.size(44.dp).background(tint.copy(alpha = 0.12f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column {
-                Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                Text(label, fontSize = 12.sp, color = Gray500)
             }
         }
     }
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
-
 @Composable
 fun StatusBadge(status: String) {
     val (bg, fg) = when (status.lowercase()) {
@@ -217,51 +279,45 @@ fun StatusBadge(status: String) {
         "inactive", "cancelled" -> Color(0xFFfdecea) to RedError
         else -> Color(0xFFf5f5f5) to Gray700
     }
-    Surface(
-        color = bg,
-        shape = RoundedCornerShape(4.dp),
-    ) {
-        Text(
-            status.uppercase(),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            color = fg,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-        )
+    Surface(color = bg, shape = RoundedCornerShape(5.dp)) {
+        Text(status.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
     }
 }
 
-// ── Primary green button ──────────────────────────────────────────────────────
-
+// ── Primary button ────────────────────────────────────────────────────────────
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     Button(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(50.dp),
-        enabled = enabled,
-        colors = ButtonDefaults.buttonColors(containerColor = Green700),
-        shape = RoundedCornerShape(10.dp),
+        onClick = onClick, modifier = modifier.fillMaxWidth().height(52.dp), enabled = enabled,
+        colors = ButtonDefaults.buttonColors(containerColor = Green700, disabledContainerColor = Gray300),
+        shape = RoundedCornerShape(12.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
     ) {
         Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
     }
 }
 
-// ── Top app bar with back ─────────────────────────────────────────────────────
-
+// ── Top bar with back ─────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackTopBar(title: String, onBack: () -> Unit) {
     TopAppBar(
-        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        title = { Text(title, fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
         navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-            }
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") }
         },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Green700,
-            titleContentColor = White,
-            navigationIconContentColor = White,
-        ),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Green700, titleContentColor = White, navigationIconContentColor = White),
+    )
+}
+
+// ── Category chip ─────────────────────────────────────────────────────────────
+@Composable
+fun CategoryChip(name: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected, onClick = onClick,
+        label = { Text(name, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal) },
+        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Green700, selectedLabelColor = White),
+        shape = RoundedCornerShape(20.dp),
     )
 }
