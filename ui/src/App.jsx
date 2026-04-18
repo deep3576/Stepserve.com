@@ -4,7 +4,8 @@ import Footer from './components/Footer'
 import {
   getStoredToken, storeToken, clearToken, createApiClient,
   serviceToProvider, CATEGORY_META,
-  apiRegister, apiLogin, apiGetMe, apiSaveProviderProfile, apiGetProviderDashboard,
+  apiRegister, apiLogin, apiGetMe, apiForgotPassword, apiResetPassword,
+  apiSaveProviderProfile, apiGetProviderDashboard,
   apiGetCategories, apiGetHome, apiSearchServices, apiCreateService,
   apiPayListing, apiUpdateListing, apiDeactivateListing, apiGetProviderListings,
   apiAdminOverview, apiAdminUsers, apiAdminBookings, apiAdminUpdateUserStatus,
@@ -673,7 +674,174 @@ const Login = ({ go, api, onLogin }) => {
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
         <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 14 }}>
-          <span style={{ color: G, cursor: 'pointer' }}>Forgot password?</span> · <span onClick={() => go('/register')} style={{ color: G, cursor: 'pointer' }}>Create account</span>
+          <span onClick={() => go('/forgot-password')} style={{ color: G, cursor: 'pointer' }}>Forgot password?</span> · <span onClick={() => go('/register')} style={{ color: G, cursor: 'pointer' }}>Create account</span>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ── Forgot Password ──────────────────────────────────────────
+const ForgotPassword = ({ go, api }) => {
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [sent, setSent] = useState(false)
+
+  const handleSend = async () => {
+    if (!email.trim()) { setError('Please enter your email address'); return }
+    setError(''); setLoading(true)
+    try {
+      await apiForgotPassword(api, { email: email.trim() })
+      setSent(true)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Something went wrong. Please try again.')
+    }
+    setLoading(false)
+  }
+
+  if (sent) {
+    return (
+      <div style={{ ...st.wrap, maxWidth: 440 }}>
+        <div style={st.card}>
+          <div style={{ textAlign: 'center', padding: '12px 0 20px' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📬</div>
+            <h2 style={{ ...st.h1, fontSize: 22, marginBottom: 8 }}>Check your email</h2>
+            <p style={{ color: '#555', fontSize: 14, lineHeight: 1.6 }}>
+              If <strong>{email}</strong> is registered, we've sent a 6-digit reset code.<br />
+              Enter it on the next screen along with your new password.
+            </p>
+          </div>
+          <button onClick={() => go(`/reset-password?email=${encodeURIComponent(email)}`)}
+            style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15 }}>
+            Enter Reset Code →
+          </button>
+          <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 12 }}>
+            <span onClick={() => setSent(false)} style={{ color: G, cursor: 'pointer' }}>Resend code</span>
+            {' · '}
+            <span onClick={() => go('/login')} style={{ color: G, cursor: 'pointer' }}>Back to sign in</span>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ ...st.wrap, maxWidth: 440 }}>
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>🔐</div>
+        <h1 style={{ ...st.h1, fontSize: 26 }}>Reset your password</h1>
+        <p style={{ color: '#888', fontSize: 14 }}>Enter your email and we'll send a 6-digit reset code.</p>
+      </div>
+      <div style={st.card}>
+        <Banner msg={error} type="error" />
+        <div style={{ marginBottom: 20 }}>
+          <label style={st.label}>Email address</label>
+          <input style={st.input} type="email" placeholder="you@example.com"
+            value={email} onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSend()} />
+        </div>
+        <button onClick={handleSend} disabled={loading || !email}
+          style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15, opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Sending…' : 'Send Reset Code'}
+        </button>
+        <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 12 }}>
+          <span onClick={() => go('/login')} style={{ color: G, cursor: 'pointer' }}>← Back to sign in</span>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ── Reset Password ───────────────────────────────────────────
+const ResetPassword = ({ go, api, initialEmail = '' }) => {
+  const [form, setForm] = useState({ email: initialEmail, code: '', new_password: '', confirm: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+  const [showPass, setShowPass] = useState(false)
+
+  const handleReset = async () => {
+    if (form.code.length !== 6 || !/^\d{6}$/.test(form.code)) {
+      setError('Enter the 6-digit code from your email'); return
+    }
+    if (form.new_password.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (form.new_password !== form.confirm) { setError('Passwords do not match'); return }
+    setError(''); setLoading(true)
+    try {
+      await apiResetPassword(api, { email: form.email, code: form.code, new_password: form.new_password })
+      setDone(true)
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Invalid or expired code. Please request a new one.')
+    }
+    setLoading(false)
+  }
+
+  if (done) {
+    return (
+      <div style={{ ...st.wrap, maxWidth: 440 }}>
+        <div style={st.card}>
+          <div style={{ textAlign: 'center', padding: '12px 0 20px' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+            <h2 style={{ ...st.h1, fontSize: 22, marginBottom: 8 }}>Password updated!</h2>
+            <p style={{ color: '#555', fontSize: 14 }}>Your password has been changed. You can now sign in.</p>
+          </div>
+          <button onClick={() => go('/login')} style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15 }}>
+            Sign In →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ ...st.wrap, maxWidth: 440 }}>
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <h1 style={{ ...st.h1, fontSize: 26 }}>Enter reset code</h1>
+        <p style={{ color: '#888', fontSize: 14 }}>Enter the 6-digit code from your email and choose a new password.</p>
+      </div>
+      <div style={st.card}>
+        <Banner msg={error} type="error" />
+        <div style={{ marginBottom: 14 }}>
+          <label style={st.label}>Email address</label>
+          <input style={st.input} type="email" value={form.email}
+            onChange={e => setForm({ ...form, email: e.target.value })} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={st.label}>6-digit code</label>
+          <input style={{ ...st.input, fontSize: 24, fontWeight: 700, letterSpacing: 10, textAlign: 'center' }}
+            type="text" inputMode="numeric" maxLength={6} placeholder="· · · · · ·"
+            value={form.code}
+            onChange={e => setForm({ ...form, code: e.target.value.replace(/\D/g, '').slice(0, 6) })} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={st.label}>New password</label>
+          <div style={{ position: 'relative' }}>
+            <input style={{ ...st.input, paddingRight: 44 }}
+              type={showPass ? 'text' : 'password'} placeholder="Minimum 8 characters"
+              value={form.new_password} onChange={e => setForm({ ...form, new_password: e.target.value })} />
+            <button onClick={() => setShowPass(v => !v)}
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                       background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 13 }}>
+              {showPass ? 'hide' : 'show'}
+            </button>
+          </div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={st.label}>Confirm new password</label>
+          <input style={{ ...st.input, borderColor: form.confirm && form.confirm !== form.new_password ? '#e53935' : undefined }}
+            type="password" placeholder="Re-enter password"
+            value={form.confirm} onChange={e => setForm({ ...form, confirm: e.target.value })} />
+        </div>
+        <button onClick={handleReset}
+          disabled={loading || form.code.length !== 6 || !form.new_password || !form.confirm}
+          style={{ ...st.btnG, width: '100%', padding: 13, fontSize: 15, opacity: loading ? 0.7 : 1 }}>
+          {loading ? 'Updating…' : 'Reset Password'}
+        </button>
+        <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 12 }}>
+          <span onClick={() => go('/forgot-password')} style={{ color: G, cursor: 'pointer' }}>Resend code</span>
+          {' · '}
+          <span onClick={() => go('/login')} style={{ color: G, cursor: 'pointer' }}>Back to sign in</span>
         </p>
       </div>
     </div>
@@ -1417,6 +1585,11 @@ export default function App() {
     if (route === '/privacy') return <Privacy />
     if (route === '/register') return <Register go={go} api={api} onLogin={onLogin} />
     if (route === '/login') return <Login go={go} api={api} onLogin={onLogin} />
+    if (route === '/forgot-password') return <ForgotPassword go={go} api={api} />
+    if (route.startsWith('/reset-password')) {
+      const params = new URLSearchParams(route.split('?')[1] || '')
+      return <ResetPassword go={go} api={api} initialEmail={params.get('email') || ''} />
+    }
     if (route === '/dashboard') return <Dashboard go={go} api={api} currentUser={currentUser} />
     if (route === '/dashboard/documents') return <DashDocuments api={api} />
     if (route === '/dashboard/billing') return <DashBilling api={api} />

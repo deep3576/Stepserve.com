@@ -73,6 +73,16 @@ export async function apiGetMe(client) {
   return data // { id, email, role, is_active }
 }
 
+export async function apiForgotPassword(client, { email }) {
+  const { data } = await client.post('/auth/forgot-password', { email })
+  return data // { message }
+}
+
+export async function apiResetPassword(client, { email, code, new_password }) {
+  const { data } = await client.post('/auth/reset-password', { email, code, new_password })
+  return data // { message }
+}
+
 // ── Provider profile ───────────────────────────────────────
 export async function apiSaveProviderProfile(client, payload) {
   const { data } = await client.post('/providers/profile', payload)
