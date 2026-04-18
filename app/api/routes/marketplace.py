@@ -1,11 +1,13 @@
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 import pymysql
 
 from app.api.deps import require_role
 from app.core.enums import BookingStatus, PaymentStatus, UserRole
+from app.core.limiter import limiter
+from app.core.config import settings
 from app.db.session import get_connection
 from app.schemas.marketplace import (
     BookingCreate,
@@ -21,8 +23,15 @@ from app.schemas.marketplace import (
 )
 
 router = APIRouter(tags=["stepserve"])
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = Path("uploads").resolve()
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Rate limit strings driven from config.ini [rate_limits]
+_PUB = f"{settings.rl_public_per_minute}/minute"
+_PAY = f"{settings.rl_payment_per_minute}/minute"
+_ADM = "120/minute"  # admin endpoints — authenticated, higher ceiling
+
+MAX_BOOKING_DAYS = 30
 
 
 @router.post("/categories", dependencies=[Depends(require_role(UserRole.admin))])
@@ -43,7 +52,9 @@ def create_category(
 
 
 @router.get("/categories")
+@limiter.limit(_PUB)
 def list_categories(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
 ):
     with conn.cursor() as cur:
@@ -61,7 +72,9 @@ def list_categories(
 
 @router.get("/stepserve/home")
 @router.get("/market/home")
+@limiter.limit(_PUB)
 def stepserve_home(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
 ):
     with conn.cursor() as cur:
@@ -123,7 +136,9 @@ def stepserve_home(
 
 
 @router.get("/search/services")
+@limiter.limit(_PUB)
 def search_services(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     query: str | None = Query(default=None),
     category_id: int | None = Query(default=None),
@@ -297,7 +312,9 @@ def create_service(
 
 
 @router.post("/listings/{service_id}/pay", response_model=ListingPaymentResponse)
+@limiter.limit(_PAY)
 def pay_listing(
+    request: Request,
     service_id: int,
     conn: pymysql.connections.Connection = Depends(get_connection),
     user: dict[str, Any] = Depends(require_role(UserRole.provider)),
@@ -309,8 +326,9 @@ def pay_listing(
         if not profile:
             raise HTTPException(status_code=400, detail="Provider profile not found")
 
+        # FOR UPDATE locks the row to prevent duplicate payment race conditions
         cur.execute(
-            "SELECT id, status FROM listing_payments WHERE service_id=%s AND provider_id=%s LIMIT 1",
+            "SELECT id, status FROM listing_payments WHERE service_id=%s AND provider_id=%s LIMIT 1 FOR UPDATE",
             (service_id, profile["id"]),
         )
         lp = cur.fetchone()
@@ -423,13 +441,22 @@ def provider_listings(
 @router.get("/services")
 def list_services(
     conn: pymysql.connections.Connection = Depends(get_connection),
-    active_only: bool = True,
 ):
+    """Public endpoint — returns active services only."""
     with conn.cursor() as cur:
-        if active_only:
-            cur.execute("SELECT * FROM services WHERE is_active = 1 ORDER BY id DESC")
-        else:
-            cur.execute("SELECT * FROM services ORDER BY id DESC")
+        cur.execute("SELECT * FROM services WHERE is_active = 1 ORDER BY id DESC")
+        return cur.fetchall()
+
+
+@router.get("/admin/services", dependencies=[Depends(require_role(UserRole.admin))])
+@limiter.limit(_ADM)
+def admin_list_all_services(
+    request: Request,
+    conn: pymysql.connections.Connection = Depends(get_connection),
+):
+    """Admin endpoint — returns all services regardless of active status."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM services ORDER BY id DESC")
         return cur.fetchall()
 
 
@@ -485,13 +512,22 @@ def provider_dashboard(
 
 
 @router.post("/bookings", response_model=BookingResponse)
+@limiter.limit(_PAY)
 def create_booking(
+    request: Request,
     payload: BookingCreate,
     conn: pymysql.connections.Connection = Depends(get_connection),
     user: dict[str, Any] = Depends(require_role(UserRole.customer)),
 ):
     if payload.end_time <= payload.start_time:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid booking window")
+
+    duration_days = (payload.end_time - payload.start_time).days
+    if duration_days > MAX_BOOKING_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Booking duration cannot exceed {MAX_BOOKING_DAYS} days",
+        )
 
     with conn.cursor() as cur:
         cur.execute("SELECT id, price FROM services WHERE id=%s AND is_active=1 LIMIT 1", (payload.service_id,))
@@ -522,21 +558,24 @@ def create_booking(
 
 
 @router.post("/payments", response_model=PaymentResponse)
+@limiter.limit(_PAY)
 def create_payment(
+    request: Request,
     payload: PaymentCreate,
     conn: pymysql.connections.Connection = Depends(get_connection),
     user: dict[str, Any] = Depends(require_role(UserRole.customer)),
 ):
     with conn.cursor() as cur:
+        # FOR UPDATE prevents concurrent double-payment on the same booking
         cur.execute(
-            "SELECT id, total_price FROM bookings WHERE id=%s AND customer_id=%s LIMIT 1",
+            "SELECT id, total_price FROM bookings WHERE id=%s AND customer_id=%s LIMIT 1 FOR UPDATE",
             (payload.booking_id, user["id"]),
         )
         booking = cur.fetchone()
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found")
 
-        cur.execute("SELECT id FROM payments WHERE booking_id=%s LIMIT 1", (payload.booking_id,))
+        cur.execute("SELECT id FROM payments WHERE booking_id=%s LIMIT 1 FOR UPDATE", (payload.booking_id,))
         payment = cur.fetchone()
         if payment:
             cur.execute(
@@ -600,7 +639,9 @@ def create_review(
 
 
 @router.get("/admin/overview")
+@limiter.limit(_ADM)
 def admin_overview(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     _: dict[str, Any] = Depends(require_role(UserRole.admin)),
 ):
@@ -623,7 +664,9 @@ def admin_overview(
 
 
 @router.get("/admin/users")
+@limiter.limit(_ADM)
 def admin_users(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     _: dict[str, Any] = Depends(require_role(UserRole.admin)),
 ):
@@ -635,7 +678,9 @@ def admin_users(
 
 
 @router.patch("/admin/users/{user_id}/status")
+@limiter.limit(_ADM)
 def admin_update_user_status(
+    request: Request,
     user_id: int,
     active: bool,
     conn: pymysql.connections.Connection = Depends(get_connection),
@@ -648,7 +693,9 @@ def admin_update_user_status(
 
 
 @router.get("/admin/bookings")
+@limiter.limit(_ADM)
 def admin_bookings(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     _: dict[str, Any] = Depends(require_role(UserRole.admin)),
 ):

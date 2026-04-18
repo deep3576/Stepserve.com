@@ -44,6 +44,24 @@ def _load_config_ini_defaults() -> dict[str, Any]:
     if parser.has_section("api"):
         defaults["api_base_url"] = parser.get("api", "base_url", fallback="http://127.0.0.1:8000/api/v1")
 
+    if parser.has_section("stripe"):
+        defaults["stripe_secret_key"] = parser.get("stripe", "secret_key", fallback="sk_test_change_me")
+        defaults["stripe_publishable_key"] = parser.get("stripe", "publishable_key", fallback="pk_test_change_me")
+        defaults["stripe_webhook_secret"] = parser.get("stripe", "webhook_secret", fallback="whsec_change_me")
+        defaults["stripe_listing_price_id"] = parser.get("stripe", "listing_price_id", fallback="price_change_me")
+
+    if parser.has_section("security"):
+        defaults["secret_key"] = parser.get("security", "secret_key",
+                                             fallback=defaults.get("secret_key", "change-me"))
+        defaults["access_token_expire_minutes"] = parser.getint(
+            "security", "access_token_expire_minutes", fallback=1440)
+
+    if parser.has_section("rate_limits"):
+        defaults["rl_public_per_minute"] = parser.getint("rate_limits", "public_per_minute", fallback=60)
+        defaults["rl_register_per_hour"] = parser.getint("rate_limits", "register_per_hour", fallback=20)
+        defaults["rl_login_per_minute"] = parser.getint("rate_limits", "login_per_minute", fallback=10)
+        defaults["rl_payment_per_minute"] = parser.getint("rate_limits", "payment_per_minute", fallback=10)
+
     return defaults
 
 
@@ -57,7 +75,7 @@ class Settings(BaseSettings):
     app_env: str = INI_DEFAULTS.get("app_env", "dev")
     debug: bool = INI_DEFAULTS.get("debug", False)
     secret_key: str = INI_DEFAULTS.get("secret_key", "change-me")
-    access_token_expire_minutes: int = 60 * 24
+    access_token_expire_minutes: int = INI_DEFAULTS.get("access_token_expire_minutes", 60 * 24)
     auto_create_tables: bool = False
 
     mysql_user: str = INI_DEFAULTS.get("mysql_user", "stepserve")
@@ -67,8 +85,16 @@ class Settings(BaseSettings):
     mysql_db: str = INI_DEFAULTS.get("mysql_db", "stepserve")
     mysql_charset: str = INI_DEFAULTS.get("mysql_charset", "utf8mb4")
 
-    stripe_secret_key: str = "sk_test_change_me"
-    stripe_webhook_secret: str = "whsec_change_me"
+    stripe_secret_key: str = INI_DEFAULTS.get("stripe_secret_key", "sk_test_change_me")
+    stripe_publishable_key: str = INI_DEFAULTS.get("stripe_publishable_key", "pk_test_change_me")
+    stripe_webhook_secret: str = INI_DEFAULTS.get("stripe_webhook_secret", "whsec_change_me")
+    stripe_listing_price_id: str = INI_DEFAULTS.get("stripe_listing_price_id", "price_change_me")
+
+    # Rate limit settings (driven from config.ini [rate_limits])
+    rl_public_per_minute: int = INI_DEFAULTS.get("rl_public_per_minute", 60)
+    rl_register_per_hour: int = INI_DEFAULTS.get("rl_register_per_hour", 20)
+    rl_login_per_minute: int = INI_DEFAULTS.get("rl_login_per_minute", 10)
+    rl_payment_per_minute: int = INI_DEFAULTS.get("rl_payment_per_minute", 10)
 
     # Comma-separated list of allowed CORS origins. Override via CORS_ORIGINS env var or config.ini.
     cors_origins: str = (

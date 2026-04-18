@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 import pymysql
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_connection
@@ -11,9 +12,12 @@ from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_REG = f"{settings.rl_register_per_hour}/hour"
+_LOGIN = f"{settings.rl_login_per_minute}/minute"
+
 
 @router.post("/register", response_model=TokenResponse)
-@limiter.limit("20/hour")
+@limiter.limit(_REG)
 def register(
     request: Request,
     payload: RegisterRequest,
@@ -40,7 +44,7 @@ def register(
 
 
 @router.post("/login", response_model=TokenResponse)
-@limiter.limit("10/minute")
+@limiter.limit(_LOGIN)
 def login(
     request: Request,
     payload: LoginRequest,
