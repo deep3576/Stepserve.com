@@ -4,7 +4,7 @@ import Foundation
 // Simulator: http://localhost:8000/api/v1/
 // Physical device: http://192.168.x.x:8000/api/v1/
 // Production: https://youruser.pythonanywhere.com/api/v1/
-let API_BASE_URL = "http://localhost:8000/api/v1"
+let API_BASE_URL = "http://10.0.0.168:8000/api/v1"
 
 enum APIResult<T> {
     case success(T)
