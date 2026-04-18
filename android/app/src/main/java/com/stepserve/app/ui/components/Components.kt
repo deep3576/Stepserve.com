@@ -1,5 +1,6 @@
 package com.stepserve.app.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -10,8 +11,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,20 +32,51 @@ import com.stepserve.app.data.api.Category
 import com.stepserve.app.data.api.Service
 import com.stepserve.app.ui.theme.*
 
-// ── StepServe Logo ────────────────────────────────────────────────────────────
+// ── StepServe Logo — exact staircase + checkmark from website SVG ─────────────
 @Composable
 fun StepServeLogo(tint: Color = White, textSize: TextUnit = 22.sp, iconSize: Dp = 26.dp) {
+    val iconH = (textSize.value * 1.55f).dp
+    val iconW = iconH * (51f / 44f)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier.size(iconSize + 10.dp).background(White.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.HomeWork, contentDescription = "StepServe", tint = tint, modifier = Modifier.size(iconSize))
+        Canvas(modifier = Modifier.size(width = iconW, height = iconH)) {
+            val sX = size.width / 51f
+            val sY = size.height / 44f
+
+            // 4 ascending bars (shortest left → tallest right)
+            listOf(
+                floatArrayOf(2f, 28f, 10f, 14f),
+                floatArrayOf(15f, 20f, 10f, 22f),
+                floatArrayOf(28f, 12f, 10f, 30f),
+                floatArrayOf(41f, 4f, 10f, 38f),
+            ).forEach { (x, y, w, h) ->
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(x * sX, y * sY),
+                    size = Size(w * sX, h * sY),
+                    cornerRadius = CornerRadius(2.5f * sX, 2.5f * sY),
+                )
+            }
+            // Soft circle halo behind checkmark
+            drawCircle(
+                color = tint.copy(alpha = 0.22f),
+                radius = 7f * sX,
+                center = Offset(46f * sX, 8f * sY),
+            )
+            // Checkmark: matches SVG polyline 42.5,8 → 45.5,11 → 50,5
+            drawPath(
+                path = Path().apply {
+                    moveTo(42.5f * sX, 8f * sY)
+                    lineTo(45.5f * sX, 11f * sY)
+                    lineTo(50f * sX, 5f * sY)
+                },
+                color = tint,
+                style = Stroke(width = 2f * sX, cap = StrokeCap.Round, join = StrokeJoin.Round),
+            )
         }
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text("StepServe", color = tint, fontSize = textSize, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
-            Text("Local Services", color = tint.copy(alpha = 0.75f), fontSize = (textSize.value * 0.52f).sp, letterSpacing = 0.3.sp)
+        Spacer(Modifier.width(8.dp))
+        Row {
+            Text("Step",  color = tint,                   fontSize = textSize, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
+            Text("Serve", color = tint.copy(alpha = 0.85f), fontSize = textSize, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
         }
     }
 }

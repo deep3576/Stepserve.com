@@ -37,21 +37,9 @@ struct SplashView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 20) {
-                // Big logo icon
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.15))
-                        .frame(width: 110, height: 110)
-                    Image(systemName: "house.fill")
-                        .font(.system(size: 52, weight: .bold))
-                        .foregroundColor(.white)
-                }
-
-                VStack(spacing: 6) {
-                    Text("StepServe")
-                        .font(.system(size: 36, weight: .heavy))
-                        .foregroundColor(.white)
-                        .tracking(-0.5)
+                // Big staircase logo — same as website
+                VStack(spacing: 12) {
+                    StepServeLogo(tint: .white, size: 34)
                     Text("Local Services Marketplace")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.white.opacity(0.8))

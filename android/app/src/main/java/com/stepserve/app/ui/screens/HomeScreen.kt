@@ -23,6 +23,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.stepserve.app.data.api.*
+import com.stepserve.app.data.auth.TokenManager
 import com.stepserve.app.ui.components.*
 import com.stepserve.app.ui.navigation.Routes
 import com.stepserve.app.ui.theme.*
@@ -101,6 +102,30 @@ fun HomeScreen(navController: NavController, vm: HomeViewModel = viewModel()) {
                                 Text("Search for a service…", color = Gray500, fontSize = 14.sp)
                             }
                         }
+                    }
+                }
+            }
+
+            // ── Sign-in prompt for guests ──────────────────────────────────
+            if (!TokenManager.isLoggedIn()) {
+                item {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Button(
+                            onClick = { navController.navigate(Routes.LOGIN) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Green700),
+                            shape = RoundedCornerShape(10.dp),
+                        ) { Text("Sign In", fontWeight = FontWeight.SemiBold) }
+                        OutlinedButton(
+                            onClick = { navController.navigate(Routes.REGISTER) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Green700),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Green700),
+                        ) { Text("Create Account", fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }

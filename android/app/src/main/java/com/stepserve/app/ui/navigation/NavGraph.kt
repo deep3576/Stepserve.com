@@ -68,7 +68,7 @@ fun NavGraph() {
 
     val bottomItems: List<BottomNavItem> = remember(role, isLoggedIn) {
         when {
-            !isLoggedIn -> listOf(BottomNavItem.Home, BottomNavItem.Search)
+            !isLoggedIn -> listOf(BottomNavItem.Home, BottomNavItem.Search, BottomNavItem.Profile)
             role == "customer" -> listOf(BottomNavItem.Home, BottomNavItem.Search, BottomNavItem.Bookings, BottomNavItem.Profile)
             role == "provider" -> listOf(BottomNavItem.Home, BottomNavItem.Search, BottomNavItem.Dashboard, BottomNavItem.Profile)
             role == "admin" -> listOf(BottomNavItem.Home, BottomNavItem.Search, BottomNavItem.Admin, BottomNavItem.Profile)

@@ -9,29 +9,53 @@ extension Color {
     static let gray300        = Color(red: 0.800, green: 0.800, blue: 0.800) // #cccccc
 }
 
-// MARK: - StepServe Logo
+// MARK: - StepServe Logo — exact staircase + checkmark matching website SVG
 struct StepServeLogo: View {
     var tint: Color = .white
-    var size: CGFloat = 22
+    var size: CGFloat = 22   // matches font size; icon scales proportionally
 
     var body: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(tint.opacity(0.2))
-                    .frame(width: size + 12, height: size + 12)
-                Image(systemName: "house.fill")
-                    .font(.system(size: size * 0.85, weight: .semibold))
-                    .foregroundColor(tint)
+        HStack(spacing: 8) {
+            // Staircase icon drawn with Canvas — mirrors the logo.svg exactly
+            Canvas { ctx, sz in
+                let sX = sz.width  / 51
+                let sY = sz.height / 44
+
+                // 4 ascending bars: (x, y, w, h) in SVG coordinate space
+                let bars: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                    (2, 28, 10, 14),
+                    (15, 20, 10, 22),
+                    (28, 12, 10, 30),
+                    (41,  4, 10, 38),
+                ]
+                for (x, y, w, h) in bars {
+                    let r = CGRect(x: x*sX, y: y*sY, width: w*sX, height: h*sY)
+                    ctx.fill(Path(roundedRect: r, cornerRadius: 2.5*sX), with: .color(tint))
+                }
+                // Soft circle halo behind checkmark
+                let halo = CGRect(x: (46-7)*sX, y: (8-7)*sY, width: 14*sX, height: 14*sY)
+                ctx.fill(Path(ellipseIn: halo), with: .color(tint.opacity(0.22)))
+
+                // Checkmark polyline: 42.5,8 → 45.5,11 → 50,5
+                var check = Path()
+                check.move(to:    CGPoint(x: 42.5*sX, y: 8*sY))
+                check.addLine(to: CGPoint(x: 45.5*sX, y: 11*sY))
+                check.addLine(to: CGPoint(x: 50*sX,   y: 5*sY))
+                ctx.stroke(check, with: .color(tint),
+                           style: StrokeStyle(lineWidth: 2*sX, lineCap: .round, lineJoin: .round))
             }
-            VStack(alignment: .leading, spacing: 0) {
-                Text("StepServe")
+            .frame(width: size * 1.55 * (51/44), height: size * 1.55)
+
+            // Wordmark: "Step" tint + "Serve" slightly muted — matches SVG split
+            HStack(spacing: 0) {
+                Text("Step")
                     .font(.system(size: size, weight: .heavy))
                     .foregroundColor(tint)
-                Text("Local Services")
-                    .font(.system(size: size * 0.5, weight: .medium))
-                    .foregroundColor(tint.opacity(0.75))
-                    .tracking(0.3)
+                    .tracking(-0.5)
+                Text("Serve")
+                    .font(.system(size: size, weight: .heavy))
+                    .foregroundColor(tint.opacity(0.85))
+                    .tracking(-0.5)
             }
         }
     }
