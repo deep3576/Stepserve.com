@@ -44,6 +44,14 @@ def _load_config_ini_defaults() -> dict[str, Any]:
     if parser.has_section("api"):
         defaults["api_base_url"] = parser.get("api", "base_url", fallback="http://127.0.0.1:8000/api/v1")
 
+    if parser.has_section("email"):
+        defaults["smtp_host"] = parser.get("email", "smtp_host", fallback="smtp.gmail.com")
+        defaults["smtp_port"] = parser.getint("email", "smtp_port", fallback=587)
+        defaults["smtp_user"] = parser.get("email", "smtp_user", fallback="")
+        defaults["smtp_password"] = parser.get("email", "smtp_password", fallback="")
+        defaults["email_from"] = parser.get("email", "from_email", fallback="StepServe <noreply@stepserve.com>")
+        defaults["email_admin_notify"] = parser.get("email", "admin_notify", fallback="")
+
     if parser.has_section("stripe"):
         defaults["stripe_secret_key"] = parser.get("stripe", "secret_key", fallback="sk_test_change_me")
         defaults["stripe_publishable_key"] = parser.get("stripe", "publishable_key", fallback="pk_test_change_me")
@@ -95,6 +103,14 @@ class Settings(BaseSettings):
     rl_register_per_hour: int = INI_DEFAULTS.get("rl_register_per_hour", 20)
     rl_login_per_minute: int = INI_DEFAULTS.get("rl_login_per_minute", 10)
     rl_payment_per_minute: int = INI_DEFAULTS.get("rl_payment_per_minute", 10)
+
+    # SMTP / email settings
+    smtp_host: str = INI_DEFAULTS.get("smtp_host", "smtp.gmail.com")
+    smtp_port: int = INI_DEFAULTS.get("smtp_port", 587)
+    smtp_user: str = INI_DEFAULTS.get("smtp_user", "")
+    smtp_password: str = INI_DEFAULTS.get("smtp_password", "")
+    email_from: str = INI_DEFAULTS.get("email_from", "StepServe <noreply@stepserve.com>")
+    email_admin_notify: str = INI_DEFAULTS.get("email_admin_notify", "")
 
     # Comma-separated list of allowed CORS origins. Override via CORS_ORIGINS env var or config.ini.
     cors_origins: str = (
