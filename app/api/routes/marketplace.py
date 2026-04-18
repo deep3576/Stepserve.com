@@ -1,11 +1,21 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 import pymysql
 
 from app.api.deps import require_role
+from app.core.email import (
+    booking_confirmation_html,
+    listing_invoice_html,
+    new_booking_admin_html,
+    payment_receipt_html,
+    send_email,
+)
 from app.core.enums import BookingStatus, PaymentStatus, UserRole
+from app.core.limiter import limiter
+from app.core.config import settings
 from app.db.session import get_connection
 from app.schemas.marketplace import (
     BookingCreate,
@@ -21,8 +31,15 @@ from app.schemas.marketplace import (
 )
 
 router = APIRouter(tags=["stepserve"])
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = Path("uploads").resolve()
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Rate limit strings driven from config.ini [rate_limits]
+_PUB = f"{settings.rl_public_per_minute}/minute"
+_PAY = f"{settings.rl_payment_per_minute}/minute"
+_ADM = "120/minute"  # admin endpoints — authenticated, higher ceiling
+
+MAX_BOOKING_DAYS = 30
 
 
 @router.post("/categories", dependencies=[Depends(require_role(UserRole.admin))])
@@ -43,7 +60,9 @@ def create_category(
 
 
 @router.get("/categories")
+@limiter.limit(_PUB)
 def list_categories(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
 ):
     with conn.cursor() as cur:
@@ -61,7 +80,9 @@ def list_categories(
 
 @router.get("/stepserve/home")
 @router.get("/market/home")
+@limiter.limit(_PUB)
 def stepserve_home(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
 ):
     with conn.cursor() as cur:
@@ -123,7 +144,9 @@ def stepserve_home(
 
 
 @router.get("/search/services")
+@limiter.limit(_PUB)
 def search_services(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     query: str | None = Query(default=None),
     category_id: int | None = Query(default=None),
@@ -297,7 +320,9 @@ def create_service(
 
 
 @router.post("/listings/{service_id}/pay", response_model=ListingPaymentResponse)
+@limiter.limit(_PAY)
 def pay_listing(
+    request: Request,
     service_id: int,
     conn: pymysql.connections.Connection = Depends(get_connection),
     user: dict[str, Any] = Depends(require_role(UserRole.provider)),
@@ -309,8 +334,9 @@ def pay_listing(
         if not profile:
             raise HTTPException(status_code=400, detail="Provider profile not found")
 
+        # FOR UPDATE locks the row to prevent duplicate payment race conditions
         cur.execute(
-            "SELECT id, status FROM listing_payments WHERE service_id=%s AND provider_id=%s LIMIT 1",
+            "SELECT id, status FROM listing_payments WHERE service_id=%s AND provider_id=%s LIMIT 1 FOR UPDATE",
             (service_id, profile["id"]),
         )
         lp = cur.fetchone()
@@ -328,7 +354,48 @@ def pay_listing(
 
         cur.execute("SELECT * FROM listing_payments WHERE id=%s", (lp["id"],))
         updated = cur.fetchone()
+
+        # Fetch service title for the invoice
+        cur.execute("SELECT title FROM services WHERE id=%s LIMIT 1", (service_id,))
+        svc = cur.fetchone()
+        service_title = svc["title"] if svc else f"Service #{service_id}"
+
     conn.commit()
+
+    # Send listing payment invoice to provider (fire-and-forget; errors are logged not raised)
+    provider_name = user.get("email", "Provider").split("@")[0].capitalize()
+    send_email(
+        to=user["email"],
+        subject=f"Invoice: Your StepServe listing is now live — INV-LST-{updated['id']:06d}",
+        html=listing_invoice_html(
+            provider_name=provider_name,
+            provider_email=user["email"],
+            service_title=service_title,
+            service_id=service_id,
+            invoice_id=updated["id"],
+            amount=float(updated["amount"]),
+            currency=updated.get("currency", "CAD"),
+            stripe_pi=fake_pi,
+            paid_at=updated.get("paid_at"),
+        ),
+    )
+    if settings.email_admin_notify:
+        send_email(
+            to=settings.email_admin_notify,
+            subject=f"[StepServe] New listing payment — {service_title}",
+            html=listing_invoice_html(
+                provider_name=provider_name,
+                provider_email=user["email"],
+                service_title=service_title,
+                service_id=service_id,
+                invoice_id=updated["id"],
+                amount=float(updated["amount"]),
+                currency=updated.get("currency", "CAD"),
+                stripe_pi=fake_pi,
+                paid_at=updated.get("paid_at"),
+            ),
+        )
+
     return ListingPaymentResponse(**updated)
 
 
@@ -423,13 +490,22 @@ def provider_listings(
 @router.get("/services")
 def list_services(
     conn: pymysql.connections.Connection = Depends(get_connection),
-    active_only: bool = True,
 ):
+    """Public endpoint — returns active services only."""
     with conn.cursor() as cur:
-        if active_only:
-            cur.execute("SELECT * FROM services WHERE is_active = 1 ORDER BY id DESC")
-        else:
-            cur.execute("SELECT * FROM services ORDER BY id DESC")
+        cur.execute("SELECT * FROM services WHERE is_active = 1 ORDER BY id DESC")
+        return cur.fetchall()
+
+
+@router.get("/admin/services", dependencies=[Depends(require_role(UserRole.admin))])
+@limiter.limit(_ADM)
+def admin_list_all_services(
+    request: Request,
+    conn: pymysql.connections.Connection = Depends(get_connection),
+):
+    """Admin endpoint — returns all services regardless of active status."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM services ORDER BY id DESC")
         return cur.fetchall()
 
 
@@ -485,7 +561,9 @@ def provider_dashboard(
 
 
 @router.post("/bookings", response_model=BookingResponse)
+@limiter.limit(_PAY)
 def create_booking(
+    request: Request,
     payload: BookingCreate,
     conn: pymysql.connections.Connection = Depends(get_connection),
     user: dict[str, Any] = Depends(require_role(UserRole.customer)),
@@ -493,8 +571,18 @@ def create_booking(
     if payload.end_time <= payload.start_time:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid booking window")
 
+    duration_days = (payload.end_time - payload.start_time).days
+    if duration_days > MAX_BOOKING_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Booking duration cannot exceed {MAX_BOOKING_DAYS} days",
+        )
+
     with conn.cursor() as cur:
-        cur.execute("SELECT id, price FROM services WHERE id=%s AND is_active=1 LIMIT 1", (payload.service_id,))
+        cur.execute(
+            "SELECT id, price, title FROM services WHERE id=%s AND is_active=1 LIMIT 1",
+            (payload.service_id,),
+        )
         service = cur.fetchone()
         if not service:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
@@ -518,32 +606,70 @@ def create_booking(
         )
         booking_id = cur.lastrowid
     conn.commit()
+
+    # Send booking confirmation to customer + admin notification
+    customer_name = user["email"].split("@")[0].capitalize()
+    send_email(
+        to=user["email"],
+        subject=f"Booking Confirmed — {service['title']} (BK-{booking_id:06d})",
+        html=booking_confirmation_html(
+            customer_name=customer_name,
+            customer_email=user["email"],
+            service_title=service["title"],
+            booking_id=booking_id,
+            start_time=payload.start_time,
+            end_time=payload.end_time,
+            total_price=total_price,
+        ),
+    )
+    if settings.email_admin_notify:
+        send_email(
+            to=settings.email_admin_notify,
+            subject=f"[StepServe] New booking BK-{booking_id:06d} — {service['title']}",
+            html=new_booking_admin_html(
+                customer_email=user["email"],
+                service_title=service["title"],
+                booking_id=booking_id,
+                start_time=payload.start_time,
+                end_time=payload.end_time,
+                total_price=total_price,
+            ),
+        )
+
     return BookingResponse(id=booking_id, status=BookingStatus.pending, total_price=total_price)
 
 
 @router.post("/payments", response_model=PaymentResponse)
+@limiter.limit(_PAY)
 def create_payment(
+    request: Request,
     payload: PaymentCreate,
     conn: pymysql.connections.Connection = Depends(get_connection),
     user: dict[str, Any] = Depends(require_role(UserRole.customer)),
 ):
     with conn.cursor() as cur:
+        # FOR UPDATE prevents concurrent double-payment on the same booking
         cur.execute(
-            "SELECT id, total_price FROM bookings WHERE id=%s AND customer_id=%s LIMIT 1",
+            """
+            SELECT b.id, b.total_price, b.start_time, b.end_time, s.title AS service_title
+            FROM bookings b
+            JOIN services s ON b.service_id = s.id
+            WHERE b.id=%s AND b.customer_id=%s
+            LIMIT 1 FOR UPDATE
+            """,
             (payload.booking_id, user["id"]),
         )
         booking = cur.fetchone()
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found")
 
-        cur.execute("SELECT id FROM payments WHERE booking_id=%s LIMIT 1", (payload.booking_id,))
+        cur.execute("SELECT id FROM payments WHERE booking_id=%s LIMIT 1 FOR UPDATE", (payload.booking_id,))
         payment = cur.fetchone()
+        stripe_pi = f"pi_demo_{payload.booking_id}"
         if payment:
             cur.execute(
-                """
-                UPDATE payments SET status=%s, stripe_payment_intent_id=%s WHERE id=%s
-                """,
-                (PaymentStatus.paid.value, f"pi_demo_{payload.booking_id}", payment["id"]),
+                "UPDATE payments SET status=%s, stripe_payment_intent_id=%s WHERE id=%s",
+                (PaymentStatus.paid.value, stripe_pi, payment["id"]),
             )
             payment_id = payment["id"]
         else:
@@ -554,7 +680,7 @@ def create_payment(
                 """,
                 (
                     payload.booking_id,
-                    f"pi_demo_{payload.booking_id}",
+                    stripe_pi,
                     booking["total_price"],
                     "CAD",
                     PaymentStatus.paid.value,
@@ -567,11 +693,29 @@ def create_payment(
             (BookingStatus.confirmed.value, payload.booking_id),
         )
     conn.commit()
+
+    # Send payment receipt to customer
+    customer_name = user["email"].split("@")[0].capitalize()
+    send_email(
+        to=user["email"],
+        subject=f"Payment Receipt — {booking['service_title']} (RCP-{payment_id:06d})",
+        html=payment_receipt_html(
+            customer_name=customer_name,
+            customer_email=user["email"],
+            service_title=booking["service_title"],
+            booking_id=payload.booking_id,
+            payment_id=payment_id,
+            amount=float(booking["total_price"]),
+            stripe_pi=stripe_pi,
+            paid_at=datetime.utcnow(),
+        ),
+    )
+
     return PaymentResponse(
         id=payment_id,
         status=PaymentStatus.paid,
         amount=float(booking["total_price"]),
-        stripe_payment_intent_id=f"pi_demo_{payload.booking_id}",
+        stripe_payment_intent_id=stripe_pi,
     )
 
 
@@ -600,7 +744,9 @@ def create_review(
 
 
 @router.get("/admin/overview")
+@limiter.limit(_ADM)
 def admin_overview(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     _: dict[str, Any] = Depends(require_role(UserRole.admin)),
 ):
@@ -623,7 +769,9 @@ def admin_overview(
 
 
 @router.get("/admin/users")
+@limiter.limit(_ADM)
 def admin_users(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     _: dict[str, Any] = Depends(require_role(UserRole.admin)),
 ):
@@ -635,7 +783,9 @@ def admin_users(
 
 
 @router.patch("/admin/users/{user_id}/status")
+@limiter.limit(_ADM)
 def admin_update_user_status(
+    request: Request,
     user_id: int,
     active: bool,
     conn: pymysql.connections.Connection = Depends(get_connection),
@@ -648,7 +798,9 @@ def admin_update_user_status(
 
 
 @router.get("/admin/bookings")
+@limiter.limit(_ADM)
 def admin_bookings(
+    request: Request,
     conn: pymysql.connections.Connection = Depends(get_connection),
     _: dict[str, Any] = Depends(require_role(UserRole.admin)),
 ):
