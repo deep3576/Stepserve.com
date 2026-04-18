@@ -162,7 +162,7 @@ private fun categoryIcon(name: String): ImageVector = when {
     name.contains("landscape", true) || name.contains("lawn", true) || name.contains("garden", true) || name.contains("yard", true) -> Icons.Filled.Park
     name.contains("plumb", true) || name.contains("pipe", true) || name.contains("drain", true) -> Icons.Filled.Plumbing
     name.contains("electric", true) || name.contains("wiring", true) || name.contains("outlet", true) -> Icons.Filled.Bolt
-    name.contains("carpet", true) || name.contains("wood", true) || name.contains("furniture", true) || name.contains("cabinet", true) -> Icons.Filled.Handyman
+    name.contains("carpen", true) || name.contains("wood", true) || name.contains("furniture", true) || name.contains("cabinet", true) || name.contains("joiner", true) -> Icons.Filled.Handyman
     name.contains("paint", true) || name.contains("colour", true) || name.contains("color", true) -> Icons.Filled.FormatPaint
     name.contains("hvac", true) || name.contains("heating", true) || name.contains("cooling", true) || name.contains("air", true) || name.contains("furnace", true) -> Icons.Filled.AcUnit
     name.contains("moving", true) || name.contains("movers", true) || name.contains("reloc", true) || name.contains("hauling", true) -> Icons.Filled.LocalShipping

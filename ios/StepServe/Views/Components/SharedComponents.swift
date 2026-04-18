@@ -190,7 +190,7 @@ struct CategoryCard: View {
         if n.contains("landscape") || n.contains("lawn") || n.contains("garden") || n.contains("yard") { return "leaf.fill" }
         if n.contains("plumb") || n.contains("pipe") || n.contains("drain") { return "wrench.fill" }
         if n.contains("electric") || n.contains("wiring") || n.contains("outlet") { return "bolt.fill" }
-        if n.contains("carpet") || n.contains("wood") || n.contains("furniture") || n.contains("cabinet") { return "hammer.fill" }
+        if n.contains("carpen") || n.contains("wood") || n.contains("furniture") || n.contains("cabinet") || n.contains("joiner") { return "hammer.fill" }
         if n.contains("paint") || n.contains("colour") || n.contains("color") { return "paintbrush.fill" }
         if n.contains("hvac") || n.contains("heating") || n.contains("cooling") || n.contains("air") || n.contains("furnace") { return "snowflake" }
         if n.contains("moving") || n.contains("movers") || n.contains("reloc") || n.contains("hauling") { return "shippingbox.fill" }
