@@ -39,6 +39,71 @@ Frontend talks to `VITE_API_BASE_URL` (default `http://127.0.0.1:8000/api/v1`).
 
 ---
 
+## Android app
+
+A native Android app (Kotlin + Jetpack Compose) is located in the `android/` directory.
+It covers every API endpoint and mirrors the web UI.
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Android Studio | Hedgehog (2023.1.1) or newer |
+| JDK | 17 or 21 |
+| Android SDK | API 35 (install via SDK Manager) |
+| Emulator | Pixel 6 API 33+ recommended |
+
+### First-time setup
+
+```bash
+# 1. Open the android/ folder as a project in Android Studio
+#    (File → Open → select the android/ directory)
+
+# 2. Let Gradle sync finish (it downloads all dependencies automatically)
+
+# 3. Create android/local.properties if it doesn't exist:
+echo "sdk.dir=$HOME/Library/Android/sdk" > android/local.properties
+# On Linux: echo "sdk.dir=$HOME/Android/Sdk" > android/local.properties
+```
+
+### Running on an emulator
+
+```bash
+# Build & install debug APK via command line:
+cd android
+./gradlew assembleDebug
+# APK is at: app/build/outputs/apk/debug/app-debug.apk
+
+# Or simply press the green Run button in Android Studio
+# (make sure an AVD emulator is selected)
+```
+
+The debug build points to `http://10.0.2.2:8000/api/v1/` which is the Android emulator's alias for `localhost:8000`. Start the FastAPI backend first (`uvicorn app.main:app --reload --port 8000`) before launching the app.
+
+### Running on a physical device
+
+1. Enable **Developer Options** → **USB Debugging** on your phone
+2. Connect via USB
+3. Select your device in Android Studio's device picker
+4. Press Run
+
+### Changing the API base URL
+
+The URL is baked in at compile time via `BuildConfig.API_BASE_URL`.
+
+- **Debug** (`10.0.2.2:8000`) — emulator localhost alias, set in `android/app/build.gradle.kts`
+- **Release** (`youruser.pythonanywhere.com`) — update the `release` `buildConfigField` in `build.gradle.kts` before building a production APK
+
+### Building a release APK
+
+```bash
+cd android
+./gradlew assembleRelease
+# APK: app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+---
+
 ## Business model
 
 - **Account signup** — free for providers and customers
