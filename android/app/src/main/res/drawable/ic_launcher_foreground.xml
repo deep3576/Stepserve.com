@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- "S" lettermark for StepServe -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,24 C38,24 26,34 26,46 C26,56 34,62 46,65 L54,67 C62,69 66,72 66,77 C66,83 60,87 52,87 C43,87 36,83 32,76 L22,82 C27,92 39,98 52,98 C69,98 80,88 80,76 C80,66 72,60 60,57 L52,55 C44,53 40,50 40,45 C40,39 46,35 54,35 C62,35 68,39 72,45 L82,39 C77,30 66,24 54,24 Z"/>
+</vector>
