@@ -1,0 +1,5 @@
+-keep class com.stepserve.app.data.api.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**
